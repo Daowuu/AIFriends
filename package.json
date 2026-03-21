@@ -1,0 +1,10 @@
+{
+  "name": "aifriends",
+  "private": true,
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "backend": "python3 backend/manage.py runserver 127.0.0.1:8000",
+    "frontend": "cd frontend && npm run dev -- --host 127.0.0.1",
+    "build": "cd frontend && npm run build"
+  }
+}

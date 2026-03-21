@@ -10,7 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import mimetypes
+import os
+
+from dotenv import load_dotenv
 from pathlib import Path
+
+load_dotenv()
+mimetypes.add_type('application/javascript', '.mjs', True)
+mimetypes.add_type('application/wasm', '.wasm', True)
+mimetypes.add_type('model/onnx', '.onnx', True)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +29,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s9sj4)3x#625b!!&%ox6f1%5t4m)h#7=va_m%dv68kms)=h+7f'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-s9sj4)3x#625b!!&%ox6f1%5t4m)h#7=va_m%dv68kms)=h+7f')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,testserver').split(',')
+    if host.strip()
+]
 
 
 # Application definition
@@ -120,14 +133,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 # 设置static和media静态文件路径
-STATIC_URL = 'static/'
-# STATIC_ROOT = BASE_DIR / 'static'  # 生产阶段使用
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-STATICFILES_DIRS = [  # 开发阶段使用，生产阶段需要注释掉
-    BASE_DIR / 'static',
-]
+STATICFILES_DIRS = []
+if DEBUG:
+    STATICFILES_DIRS = [
+        BASE_DIR / 'static',
+    ]
 
-MEDIA_URL = 'http://127.0.0.1:8000/media/'
+MEDIA_URL = os.getenv('DJANGO_MEDIA_URL', '/media/')
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
@@ -159,5 +174,13 @@ SIMPLE_JWT = {
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    origin.strip()
+    for origin in os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', 'http://127.0.0.1:5173,http://localhost:5173').split(',')
+    if origin.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
 ]

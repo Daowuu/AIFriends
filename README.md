@@ -116,6 +116,23 @@ Optional from the repo root:
 npm run dev
 ```
 
+### 4. Built-in character seeds
+
+The repo now ships with a built-in character seed file:
+
+- [backend/web/fixtures/default_characters.json](/Users/xxx/project/AIFriends/backend/web/fixtures/default_characters.json)
+
+Current behavior:
+
+- If the local character library is empty, the first visit to the homepage feed or `/api/character/list/` will auto-seed these characters into the local database.
+- If the local database already has characters, the seed will not overwrite them.
+- On another machine, after `git pull`, a fresh empty database will automatically get the built-in roles as soon as the character list is loaded.
+
+Important:
+
+- Auto-seeding only handles empty-library initialization.
+- It does not force-import the seed into a non-empty local database.
+
 ## Main Commands
 
 ```bash
@@ -148,6 +165,20 @@ If you just want to try the full workflow quickly:
 6. Continue with `角色概览`, `试聊诊断`, or open `/chat/:characterId`
 
 The sample button is useful as a starting point because it fills all three configuration steps at once instead of only creating an empty draft.
+
+## Built-in roles vs. the sample role
+
+There are now two layers of role bootstrapping:
+
+1. Built-in character seeds
+   These guarantee that a fresh environment has a usable starter role library.
+2. `填入爱莉希雅示例`
+   This is a Studio shortcut for generating a fuller Elysia draft with prompt, voice draft, and media assets.
+
+They serve different purposes:
+
+- built-in seeds solve “does this environment have roles at all?”
+- the sample button solves “how do I quickly create one polished demo role?”
 
 ## Screenshots
 

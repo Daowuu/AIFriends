@@ -120,6 +120,12 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - 是否注入会话记忆
 - 语音播报使用哪种音色
 
+补充说明：
+
+- 当前仓库内已经包含一份内置角色种子文件：`backend/web/fixtures/default_characters.json`
+- 空库环境下，角色列表接口或首页角色流会自动把这批角色写入本地数据库
+- 这意味着角色设定现在不再只依赖某台机器的 `db.sqlite3`
+
 ### 3.2 会话存储（模型名仍为 `Friend`）
 
 数据库里这个模型名仍然叫 `Friend`，但在当前产品语义里它承担的是 **角色会话**。
@@ -194,6 +200,13 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 - 角色编辑页音色选择
 - 试听接口
 - 正式聊天页语音播报
+
+当前内置角色里，爱莉希雅还额外带了一套项目内媒体资产：
+
+- `backend/media/character/photos/elysia-avatar.png`
+- `backend/media/character/backgrounds/elysia-background.webp`
+
+这些文件跟随仓库同步，不再只存在某一台机器的本地媒体目录里。
 
 ### 3.6 WerewolfGame / WerewolfSeat / WerewolfEvent / WerewolfSpeech
 

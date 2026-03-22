@@ -104,13 +104,16 @@ cd AIFriends
 
 ### 2. 后端启动
 
-先准备 Python 环境，并安装你本地使用的后端依赖。
+当前仓库还没有提供固定版 `requirements.txt`，所以后端依赖需要显式安装。
 
-这个项目至少依赖：
+建议先创建一个干净的 Python 3.12+ 环境：
 
-- Django / DRF
-- OpenAI 兼容客户端
-- 你本地当前这套后端运行所需的其他包
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv openai
+```
 
 然后执行：
 
@@ -125,6 +128,8 @@ python3 backend/manage.py runserver
 - `http://127.0.0.1:8000`
 
 ### 3. 前端启动
+
+建议 Node 版本：`20+`
 
 ```bash
 cd frontend

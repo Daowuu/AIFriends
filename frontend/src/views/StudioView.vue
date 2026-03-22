@@ -6,6 +6,7 @@ import api from '@/api/http'
 import streamApi from '@/api/streamApi'
 import AppIcon from '@/components/AppIcon.vue'
 import CharacterForm from '@/components/CharacterForm.vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import ApiSettingsView from '@/views/ApiSettingsView.vue'
 import type { Character, CharacterFormPayload, VoiceOption } from '@/types/character'
 import type { StudioChatDebug, StudioOverview, StudioRecentDebugSummary } from '@/types/studio'
@@ -763,8 +764,11 @@ onMounted(() => {
 
                   <div class="mt-5 rounded-[22px] border border-[#e7e0d4] bg-[#fcfbf7] p-4">
                     <div class="text-xs font-bold uppercase tracking-[0.16em] text-[#7c6d55]">试聊回复</div>
-                    <div class="mt-3 min-h-44 whitespace-pre-wrap text-sm leading-7 text-[#46534d]">
-                      {{ testReply || '这里会显示一轮试聊的回复内容。' }}
+                    <div v-if="testReply" class="mt-3 min-h-44 text-sm leading-7 text-[#46534d]">
+                      <MarkdownContent :content="testReply" />
+                    </div>
+                    <div v-else class="mt-3 min-h-44 text-sm leading-7 text-[#7b857f]">
+                      这里会显示一轮试聊的回复内容。
                     </div>
                   </div>
                 </div>

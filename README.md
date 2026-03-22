@@ -93,10 +93,16 @@ cd AIFriends
 
 ### 2. Backend setup
 
-Create a Python environment and install the backend dependencies you use locally.
+This repo does not currently ship a pinned `requirements.txt`, so the backend dependencies need to be installed explicitly.
 
-At minimum, this project expects a Django + DRF stack plus OpenAI-compatible client support.  
-If you are recreating the environment from scratch, install the backend packages your local setup already uses before running migrations.
+Recommended: create a clean Python 3.12+ environment first.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv openai
+```
 
 Then:
 
@@ -111,6 +117,8 @@ Backend runs by default at:
 - `http://127.0.0.1:8000`
 
 ### 3. Frontend setup
+
+Recommended Node version: `20+`
 
 ```bash
 cd frontend

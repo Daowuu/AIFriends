@@ -24,14 +24,12 @@ const testErrorMessage = ref('')
 const testAsrMessage = ref('')
 const testAsrErrorMessage = ref('')
 
-const enabled = ref(false)
 const provider = ref<AIProviderOption['value']>('aliyun')
 const apiBase = ref('')
 const modelName = ref('')
 const apiKey = ref('')
 const hasExistingApiKey = ref(false)
 const clearApiKey = ref(false)
-const asrEnabled = ref(false)
 const asrApiBase = ref('')
 const asrModelName = ref('')
 const ttsModelName = ref('')
@@ -53,14 +51,12 @@ const resolvedAsrModelPreview = computed(() => asrModelName.value.trim() || 'qwe
 const resolvedTtsModelPreview = computed(() => ttsModelName.value.trim() || 'cosyvoice-v3.5-plus')
 
 const applySettings = (settings: AISettings) => {
-  enabled.value = settings.enabled
   provider.value = settings.provider
   apiBase.value = settings.api_base
   modelName.value = settings.model_name
   hasExistingApiKey.value = settings.has_api_key
   clearApiKey.value = false
   apiKey.value = ''
-  asrEnabled.value = settings.asr_enabled
   asrApiBase.value = settings.asr_api_base
   asrModelName.value = settings.asr_model_name
   ttsModelName.value = settings.tts_model_name
@@ -131,7 +127,6 @@ const handleSaveChatConfig = async () => {
       providers: AIProviderOption[]
       runtime_summary: AIRuntimeSummary
     }>('/runtime/settings/', {
-      enabled: enabled.value,
       provider: provider.value,
       api_base: apiBase.value.trim(),
       model_name: modelName.value.trim(),
@@ -166,7 +161,6 @@ const handleSaveAsrConfig = async () => {
       providers: AIProviderOption[]
       runtime_summary: AIRuntimeSummary
     }>('/runtime/settings/', {
-      asr_enabled: asrEnabled.value,
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
       tts_model_name: ttsModelName.value.trim(),
@@ -246,7 +240,6 @@ const handleTestAsrConnection = async () => {
         model_name: string
       }
     }>('/runtime/settings/test_asr/', {
-      asr_enabled: asrEnabled.value,
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
       asr_api_key: asrApiKey.value.trim(),
@@ -293,13 +286,13 @@ onMounted(() => {
           <div class="rounded-[24px] border border-base-200 bg-white px-4 py-3 shadow-sm">
             <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">聊天模式</div>
             <div class="mt-2 text-sm font-semibold text-base-content">
-              {{ enabled ? '已启用同步运行时' : '已关闭聊天运行时' }}
+              {{ runtimeSummary?.chat_runtime?.enabled ? '已配置聊天运行时' : '等待补全配置' }}
             </div>
           </div>
           <div class="rounded-[24px] border border-base-200 bg-white px-4 py-3 shadow-sm">
             <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">ASR 模式</div>
             <div class="mt-2 text-sm font-semibold text-base-content">
-              {{ asrEnabled ? '独立 ASR 配置' : '复用聊天语音链路' }}
+              {{ runtimeSummary?.asr_runtime?.enabled ? '已配置语音运行时' : '等待补全配置' }}
             </div>
           </div>
         </div>
@@ -319,7 +312,7 @@ onMounted(() => {
                 </div>
                 <h2 class="mt-3 text-2xl font-black tracking-tight text-base-content">聊天模型配置</h2>
                 <p class="mt-2 text-sm leading-7 text-base-content/60">
-                  把运行方式、提供方、模型、网关地址和聊天密钥收在一张卡片里。你改完这块，只影响聊天。
+                  把提供方、模型、网关地址和聊天密钥收在一张卡片里。保存有效配置后，聊天运行时会自动生效。
                 </p>
               </div>
 
@@ -338,21 +331,6 @@ onMounted(() => {
             </div>
 
             <div class="space-y-6 px-6 py-6 sm:px-7">
-              <div class="rounded-[28px] border border-sky-100 bg-[linear-gradient(135deg,rgba(240,249,255,0.9),rgba(248,250,252,0.9))] p-5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div class="max-w-2xl">
-                    <div class="text-sm font-bold text-base-content">运行方式</div>
-                    <p class="mt-1 text-sm leading-7 text-base-content/60">
-                      开启后会直接使用当前 Studio 与 `backend/.env` 同步的聊天配置；关闭后当前实例不启用聊天运行时。
-                    </p>
-                  </div>
-                  <label class="label cursor-pointer justify-start gap-3 rounded-full border border-sky-200 bg-white px-4 py-3 shadow-sm">
-                    <span class="text-sm font-semibold text-base-content">启用聊天运行时</span>
-                    <input v-model="enabled" type="checkbox" class="toggle toggle-primary" />
-                  </label>
-                </div>
-              </div>
-
               <div class="grid gap-5 md:grid-cols-2">
                 <label class="form-control">
                   <span class="mb-2 text-sm font-bold text-base-content/70">模型提供方</span>
@@ -448,7 +426,7 @@ onMounted(() => {
                 </div>
                 <h2 class="mt-3 text-2xl font-black tracking-tight text-base-content">语音配置</h2>
                 <p class="mt-2 text-sm leading-7 text-base-content/60">
-                  这块统一管理语音输入和语音播报。ASR 与 TTS 共用同一套语音运行时，TTS 额外指定播报模型。
+                  这块统一管理语音输入和语音播报。ASR 与 TTS 共用同一套语音运行时，TTS 额外指定播报模型；保存后会自动生效。
                 </p>
               </div>
 
@@ -459,27 +437,12 @@ onMounted(() => {
                 </div>
                 <div class="rounded-[24px] border border-base-200 bg-amber-50/60 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">生效方式</div>
-                  <div class="mt-2 font-semibold text-base-content/75">{{ asrEnabled ? '已启用语音运行时' : '未启用' }}</div>
+                  <div class="mt-2 font-semibold text-base-content/75">{{ runtimeSummary?.asr_runtime?.enabled ? '已配置语音运行时' : '等待补全配置' }}</div>
                 </div>
               </div>
             </div>
 
             <div class="space-y-6 px-6 py-6 sm:px-7">
-              <div class="rounded-[28px] border border-amber-100 bg-[linear-gradient(135deg,rgba(255,251,235,0.95),rgba(248,250,252,0.9))] p-5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div class="max-w-2xl">
-                    <div class="text-sm font-bold text-base-content">语音运行时</div>
-                    <p class="mt-1 text-sm leading-7 text-base-content/60">
-                      开启后，语音输入和语音播报都会走这里保存的专用语音 key / base / model；关闭后，当前实例不启用语音链路。
-                    </p>
-                  </div>
-                  <label class="label cursor-pointer justify-start gap-3 rounded-full border border-amber-200 bg-white px-4 py-3 shadow-sm">
-                    <span class="text-sm font-semibold text-base-content">启用语音运行时</span>
-                    <input v-model="asrEnabled" type="checkbox" class="toggle toggle-warning" />
-                  </label>
-                </div>
-              </div>
-
               <div class="grid gap-5 md:grid-cols-2">
                 <label class="form-control">
                   <span class="mb-2 text-sm font-bold text-base-content/70">识别模型</span>
@@ -579,7 +542,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between gap-3">
                   <div class="text-sm font-black text-base-content">聊天</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm">
-                    {{ enabled ? 'Studio / .env' : '运行时已关闭' }}
+                    {{ runtimeSummary?.chat_runtime?.enabled ? 'Studio / .env' : '等待补全配置' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">
@@ -602,7 +565,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between gap-3">
                   <div class="text-sm font-black text-base-content">语音运行时</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">
-                    {{ asrEnabled ? '已启用' : '未启用' }}
+                    {{ runtimeSummary?.asr_runtime?.enabled ? '已配置' : '等待补全配置' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">

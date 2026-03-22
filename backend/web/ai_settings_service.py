@@ -126,8 +126,8 @@ def get_local_runtime_settings():
     asr_model_name = _env_str(values, 'ASR_MODEL', '')
     tts_model_name = _env_str(values, 'TTS_MODEL', 'cosyvoice-v3.5-plus') or 'cosyvoice-v3.5-plus'
 
-    enabled = _env_bool(values, 'RUNTIME_ENABLED', bool(api_key or api_base))
-    asr_enabled = _env_bool(values, 'ASR_ENABLED', bool(asr_api_key or asr_api_base))
+    enabled = bool(api_key)
+    asr_enabled = bool(asr_api_key)
 
     return RuntimeEnvSettings(
         enabled=enabled,
@@ -205,8 +205,10 @@ def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
     api_base = str(payload.get('api_base', settings.api_base)).strip() or provider_config['default_api_base']
     model_name = str(payload.get('model_name', settings.model_name)).strip() or provider_config['default_model_name']
 
+    enabled = bool(api_key)
+
     return {
-        'enabled': str(payload.get('enabled', settings.enabled)).lower() in {'1', 'true', 'yes', 'on'},
+        'enabled': enabled,
         'provider': provider,
         'api_key': api_key,
         'api_base': api_base,
@@ -216,13 +218,13 @@ def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
 
 
 def resolve_user_asr_settings_payload(settings: RuntimeEnvSettings, payload):
-    asr_enabled = str(payload.get('asr_enabled', settings.asr_enabled)).lower() in {'1', 'true', 'yes', 'on'}
     clear_asr_api_key = str(payload.get('clear_asr_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
     raw_api_key = str(payload.get('asr_api_key', '')).strip()
     asr_api_key = '' if clear_asr_api_key else (raw_api_key or settings.asr_api_key.strip())
     asr_api_base = str(payload.get('asr_api_base', settings.asr_api_base)).strip() or ASR_DEFAULT_API_BASE
     asr_model_name = str(payload.get('asr_model_name', settings.asr_model_name)).strip() or ASR_DEFAULT_MODEL_NAME
     tts_model_name = str(payload.get('tts_model_name', settings.tts_model_name)).strip() or 'cosyvoice-v3.5-plus'
+    asr_enabled = bool(asr_api_key)
 
     return {
         'asr_enabled': asr_enabled,
@@ -242,14 +244,12 @@ def save_runtime_env_settings(chat_payload=None, asr_payload=None):
         env_path.touch()
 
     if chat_payload is not None:
-        set_key(env_path, 'RUNTIME_ENABLED', 'true' if chat_payload['enabled'] else 'false', quote_mode='always')
         set_key(env_path, 'API_PROVIDER', chat_payload['provider'], quote_mode='always')
         set_key(env_path, 'API_KEY', chat_payload['api_key'], quote_mode='always')
         set_key(env_path, 'API_BASE', chat_payload['api_base'], quote_mode='always')
         set_key(env_path, 'CHAT_MODEL', chat_payload['model_name'], quote_mode='always')
 
     if asr_payload is not None:
-        set_key(env_path, 'ASR_ENABLED', 'true' if asr_payload['asr_enabled'] else 'false', quote_mode='always')
         set_key(env_path, 'ASR_API_KEY', asr_payload['asr_api_key'], quote_mode='always')
         set_key(env_path, 'ASR_API_BASE', asr_payload['asr_api_base'], quote_mode='always')
         set_key(env_path, 'ASR_MODEL', asr_payload['asr_model_name'], quote_mode='always')

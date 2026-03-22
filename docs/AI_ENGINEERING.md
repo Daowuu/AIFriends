@@ -152,12 +152,10 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 
 关键字段：
 
-- `RUNTIME_ENABLED`
 - `API_PROVIDER`
 - `API_KEY`
 - `API_BASE`
 - `CHAT_MODEL`
-- `ASR_ENABLED`
 - `ASR_API_KEY`
 - `ASR_API_BASE`
 - `ASR_MODEL`
@@ -197,8 +195,8 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 当前解析顺序：
 
 1. 读取 `backend/.env` 中的同步运行时配置
-2. 如果 `RUNTIME_ENABLED=false`，返回 `missing`
-3. 如果已启用但缺 key / base / model，返回 `invalid`
+2. 如果没有聊天 `API_KEY`，返回 `missing`
+3. 如果已有 key，但解析后缺 base / model，返回 `invalid`
 4. 如果配置完整，返回 `ok`
 
 当前输出：
@@ -216,9 +214,9 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 
 当前优先级：
 
-1. 如果 `ASR_ENABLED=true`，直接读取 `ASR_API_KEY / ASR_API_BASE / ASR_MODEL`
+1. 如果存在 `ASR_API_KEY`，直接读取 `ASR_API_KEY / ASR_API_BASE / ASR_MODEL`
 2. 这套语音运行时同时供语音识别和语音播报使用
-3. 如果未启用，则当前实例不启用语音链路
+3. 如果没有语音 key，则当前实例不启用语音链路
 
 ### 4.3 TTS runtime
 

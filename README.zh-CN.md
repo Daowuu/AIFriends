@@ -52,13 +52,11 @@ cd ..
 最重要的变量：
 
 ```env
-RUNTIME_ENABLED="true"
 API_PROVIDER="aliyun"
 API_KEY=""
 API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 CHAT_MODEL="qwen-plus"
 
-ASR_ENABLED="false"
 ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"

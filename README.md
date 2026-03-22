@@ -80,12 +80,6 @@ npm install
 npm run dev
 ```
 
-If you only want to install the Python dependencies first:
-
-```bash
-pip install -r requirements.txt
-```
-
 ## Minimal Config
 
 Server-side defaults are centralized in:

@@ -80,12 +80,6 @@ npm install
 npm run dev
 ```
 
-如果你只想先把 Python 依赖装好，也可以单独执行：
-
-```bash
-pip install -r requirements.txt
-```
-
 ## 最小配置
 
 服务端默认配置集中在：

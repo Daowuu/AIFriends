@@ -11,6 +11,10 @@ const props = withDefaults(defineProps<{
   pending?: boolean
   disabled?: boolean
   allowVoiceMode?: boolean
+  inputMode?: 'text' | 'voice'
+  outputMode?: 'text' | 'voice'
+  voiceOutputAvailable?: boolean
+  voiceOutputHint?: string
   asrEndpoint?: string
   disabledReason?: string
   placeholder?: string
@@ -20,6 +24,10 @@ const props = withDefaults(defineProps<{
   pending: false,
   disabled: false,
   allowVoiceMode: true,
+  inputMode: 'text',
+  outputMode: 'text',
+  voiceOutputAvailable: true,
+  voiceOutputHint: '',
   asrEndpoint: '/session/asr/',
   disabledReason: '',
   placeholder: '输入一句话，开始聊天。',
@@ -29,11 +37,13 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   send: [message: string]
   stop: []
+  'update:inputMode': [mode: 'text' | 'voice']
+  'update:outputMode': [mode: 'text' | 'voice']
 }>()
 
 const message = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
-const inputMode = ref<'text' | 'voice'>('text')
+const inputMode = ref<'text' | 'voice'>(props.inputMode)
 const isInitializingVad = ref(false)
 const isListening = ref(false)
 const isSpeaking = ref(false)
@@ -107,6 +117,13 @@ const voiceStatusDescription = computed(() => {
   return '启动监听后会自动识别，也支持手动录音。'
 })
 const shouldShowVoiceDrawer = computed(() => inputMode.value === 'voice' && showVoiceSettings.value)
+const voiceOutputStatusText = computed(() => {
+  if (props.outputMode !== 'voice') return ''
+  if (!props.voiceOutputAvailable) {
+    return props.voiceOutputHint || '当前未配置语音播报运行时，角色回复将无法正常播报。'
+  }
+  return props.voiceOutputHint || '角色回复后会自动语音播报。'
+})
 
 const normalizeDeviceLabel = (label: string) => label.trim().toLowerCase()
 
@@ -380,7 +397,10 @@ const cleanupManualRecorder = () => {
 const resetToTextMode = async () => {
   destroyVad()
   cleanupManualRecorder()
-  inputMode.value = 'text'
+  if (inputMode.value !== 'text') {
+    inputMode.value = 'text'
+    emit('update:inputMode', 'text')
+  }
   showVoiceSettings.value = false
   voiceError.value = ''
   voiceInfo.value = ''
@@ -605,6 +625,7 @@ const setInputMode = async (mode: 'text' | 'voice') => {
   if (!props.allowVoiceMode) return
 
   inputMode.value = 'voice'
+  emit('update:inputMode', 'voice')
   message.value = ''
   showVoiceSettings.value = false
   await refreshAudioDevices({ ensurePermission: true })
@@ -635,6 +656,15 @@ watch(() => props.allowVoiceMode, (allowed) => {
   }
 })
 
+watch(() => props.inputMode, (mode) => {
+  if (mode === inputMode.value) return
+  if (mode === 'text') {
+    void resetToTextMode()
+    return
+  }
+  void setInputMode('voice')
+})
+
 watch(selectedInputDeviceId, (current, previous) => {
   if (!current || current === previous || inputMode.value !== 'voice' || isVoiceBusy.value) {
     return
@@ -657,6 +687,9 @@ defineExpose({
       await focusTextarea()
     }
   },
+  isVoiceInputMode() {
+    return inputMode.value === 'voice'
+  },
   isVoiceMode() {
     return inputMode.value === 'voice'
   },
@@ -670,25 +703,52 @@ defineExpose({
 
 <template>
   <div class="relative rounded-[26px] border border-base-200/80 bg-white/88 p-3 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] backdrop-blur sm:p-3.5">
-    <div class="mb-3 flex items-center justify-between gap-3">
-      <div class="flex gap-1.5 rounded-full border border-base-200 bg-base-100/90 p-1">
-        <button
-          type="button"
-          class="btn btn-sm rounded-full"
-          :class="inputMode === 'text' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
-          @click="setInputMode('text')"
-        >
-          文字
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm rounded-full"
-          :class="inputMode === 'voice' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
-          :disabled="disabled || !allowVoiceMode"
-          @click="setInputMode('voice')"
-        >
-          语音
-        </button>
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-base-content/45">我的输入</span>
+          <div class="flex gap-1.5 rounded-full border border-base-200 bg-base-100/90 p-1">
+            <button
+              type="button"
+              class="btn btn-sm rounded-full"
+              :class="inputMode === 'text' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
+              @click="setInputMode('text')"
+            >
+              文本
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm rounded-full"
+              :class="inputMode === 'voice' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
+              :disabled="disabled || !allowVoiceMode"
+              @click="setInputMode('voice')"
+            >
+              语音
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-base-content/45">角色输出</span>
+          <div class="flex gap-1.5 rounded-full border border-base-200 bg-base-100/90 p-1">
+            <button
+              type="button"
+              class="btn btn-sm rounded-full"
+              :class="props.outputMode === 'text' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
+              @click="emit('update:outputMode', 'text')"
+            >
+              文本
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm rounded-full"
+              :class="props.outputMode === 'voice' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
+              @click="emit('update:outputMode', 'voice')"
+            >
+              语音
+            </button>
+          </div>
+        </div>
       </div>
 
       <button
@@ -699,6 +759,14 @@ defineExpose({
       >
         停止回复
       </button>
+    </div>
+
+    <div
+      v-if="props.outputMode === 'voice'"
+      class="mb-3 rounded-2xl border px-3 py-2 text-xs leading-6"
+      :class="props.voiceOutputAvailable ? 'border-base-200 bg-base-50/80 text-base-content/65' : 'border-warning/20 bg-warning/5 text-warning-content/80'"
+    >
+      {{ voiceOutputStatusText }}
     </div>
 
     <div v-if="inputMode === 'text'" class="flex min-h-[84px] items-end gap-3">

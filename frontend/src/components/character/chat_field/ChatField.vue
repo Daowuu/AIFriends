@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import api from '@/api/http'
 import streamApi from '@/api/streamApi'
+import type { AIRuntimeSummary } from '@/types/ai-settings'
 import type { Character } from '@/types/character'
 import type { ChatMessage } from '@/types/message'
 
@@ -37,9 +38,53 @@ let speechPlaybackToken = 0
 let activeAudio: HTMLAudioElement | null = null
 let activeAudioUrl = ''
 
+const CHAT_INPUT_MODE_STORAGE_KEY = 'aifriends.chat.preferred-input-mode'
+const CHAT_OUTPUT_MODE_STORAGE_KEY = 'aifriends.chat.preferred-output-mode'
+
 const EMOJI_PRESENTATION_REGEX = /[\p{Extended_Pictographic}\uFE0F]/gu
 const EMOTICON_TOKEN_REGEX = /(\^[_-]?\^|T[_-]?T|QAQ|qwq|QwQ|owo|OwO|uwu|UwU|XD|xD|哈哈哈+|呵呵呵+|[><][._-]?[<>()]|:\)|:-\)|:\(|:-\(|:D|:-D|;\)|;-\)|:\||:-\||\/::\)|\/::~|\/:B-|\/:8-\)|\/:<|\/:>|\/:\||\/:@|\/:P|\/:D|\/:\$|\/:X|\/:Z|\/:'\(|\/:Q|<3)+/gi
 const BRACKET_EMOTE_REGEX = /[\[({（【]\s*(?:捂脸|偷笑|流汗|害羞|大笑|微笑|难过|委屈|尴尬|赞|鼓掌|哭笑|doge|笑哭|疑问|惊讶|发呆|生气|叹气|无语|撇嘴|呲牙|色|可爱|亲亲|比心)\s*[\])}）】]/gi
+
+const readStoredMode = (key: string, fallback: 'text' | 'voice') => {
+  if (typeof window === 'undefined') return fallback
+  const value = window.localStorage.getItem(key)
+  return value === 'voice' || value === 'text' ? value : fallback
+}
+
+const inputMode = ref<'text' | 'voice'>(readStoredMode(CHAT_INPUT_MODE_STORAGE_KEY, 'text'))
+const outputMode = ref<'text' | 'voice'>(readStoredMode(CHAT_OUTPUT_MODE_STORAGE_KEY, 'text'))
+const runtimeSummary = ref<AIRuntimeSummary | null>(null)
+const replySpeechStatus = ref<{ tone: 'info' | 'warning'; message: string } | null>(null)
+
+const clearReplySpeechStatus = () => {
+  replySpeechStatus.value = null
+}
+
+const setReplySpeechStatus = (message: string, tone: 'info' | 'warning' = 'warning') => {
+  if (!message.trim()) {
+    replySpeechStatus.value = null
+    return
+  }
+  replySpeechStatus.value = { tone, message }
+}
+
+const loadRuntimeSummary = async () => {
+  try {
+    const response = await api.get<{ runtime_summary: AIRuntimeSummary }>('/runtime/settings/')
+    runtimeSummary.value = response.data.runtime_summary
+  } catch {
+    runtimeSummary.value = null
+  }
+}
+
+const voiceOutputAvailable = computed(() => runtimeSummary.value?.tts_runtime?.enabled ?? true)
+const voiceOutputHint = computed(() => {
+  if (outputMode.value !== 'voice') return ''
+  if (!voiceOutputAvailable.value) {
+    return '当前未配置语音播报运行时；会优先尝试浏览器朗读，想获得角色音色请先在 Studio 补全语音配置。'
+  }
+  return '角色回复后会自动语音播报。'
+})
 
 const stopAudioPlayback = () => {
   speechPlaybackToken += 1
@@ -84,6 +129,7 @@ const normalizeSpeechText = (text: string) => {
 
 const playBrowserSpeech = (speechText: string, playbackToken: number) => {
   if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+    setReplySpeechStatus('当前浏览器不支持语音播报。', 'warning')
     if (speechPlaybackToken === playbackToken) {
       void inputRef.value?.resumeLiveListening()
     }
@@ -100,11 +146,15 @@ const playBrowserSpeech = (speechText: string, playbackToken: number) => {
   utterance.onend = () => {
     if (speechPlaybackToken !== playbackToken) return
     isReplySpeaking.value = false
+    if (!voiceOutputAvailable.value) {
+      setReplySpeechStatus('已使用浏览器朗读回复。', 'info')
+    }
     void inputRef.value?.resumeLiveListening()
   }
   utterance.onerror = () => {
     if (speechPlaybackToken !== playbackToken) return
     isReplySpeaking.value = false
+    setReplySpeechStatus('浏览器语音播报失败。', 'warning')
     void inputRef.value?.resumeLiveListening()
   }
   window.speechSynthesis.speak(utterance)
@@ -156,8 +206,9 @@ const playBackendSpeech = async (speechText: string, playbackToken: number) => {
 const speakReply = async (text: string) => {
   const speechText = normalizeSpeechText(text)
   if (!speechText) return
-  if (!inputRef.value?.isVoiceMode()) return
+  if (outputMode.value !== 'voice') return
 
+  clearReplySpeechStatus()
   inputRef.value?.pauseLiveListening()
   stopAudioPlayback()
   const playbackToken = speechPlaybackToken
@@ -165,6 +216,9 @@ const speakReply = async (text: string) => {
   try {
     await playBackendSpeech(speechText, playbackToken)
   } catch {
+    if (!voiceOutputAvailable.value) {
+      setReplySpeechStatus('当前未配置语音播报运行时，正在回退到浏览器朗读。', 'info')
+    }
     playBrowserSpeech(speechText, playbackToken)
   }
 }
@@ -279,12 +333,33 @@ watch(() => props.character?.id, async (characterId) => {
     return
   }
 
+  await loadRuntimeSummary()
   stopCurrentReply({ clearError: true, continueQueue: false })
   pendingUserQueue.value = []
   inputResetToken.value += 1
+  clearReplySpeechStatus()
   await loadHistory({ reset: true })
   inputRef.value?.focus()
 }, { immediate: true })
+
+watch(inputMode, (mode) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(CHAT_INPUT_MODE_STORAGE_KEY, mode)
+})
+
+watch(outputMode, (mode, previousMode) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(CHAT_OUTPUT_MODE_STORAGE_KEY, mode)
+  }
+  if (mode === previousMode) return
+  if (mode === 'text') {
+    clearReplySpeechStatus()
+    if (isReplySpeaking.value) {
+      stopAudioPlayback()
+      void inputRef.value?.resumeLiveListening()
+    }
+  }
+})
 
 onBeforeUnmount(() => {
   stopCurrentReply({ clearError: true, continueQueue: false })
@@ -425,6 +500,13 @@ const handleSend = async (message: string) => {
         <div v-if="chatError" class="mt-3 rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">
           {{ chatError }}
         </div>
+        <div
+          v-if="replySpeechStatus"
+          class="mt-3 rounded-2xl border px-4 py-3 text-sm"
+          :class="replySpeechStatus.tone === 'warning' ? 'border-warning/20 bg-warning/5 text-warning-content/80' : 'border-base-200 bg-base-50 text-base-content/65'"
+        >
+          {{ replySpeechStatus.message }}
+        </div>
 
         <div class="relative z-20 mt-4">
           <InputField
@@ -432,11 +514,17 @@ const handleSend = async (message: string) => {
             :autofocus="true"
             :disabled="!chatEnabled"
             :disabled-reason="inputDisabledReason"
+            :input-mode="inputMode"
+            :output-mode="outputMode"
+            :voice-output-available="voiceOutputAvailable"
+            :voice-output-hint="voiceOutputHint"
             :pending="sendingMessage || isReplySpeaking || pending"
             :placeholder="inputPlaceholder"
             :reset-token="inputResetToken"
             :allow-voice-mode="true"
             asr-endpoint="/session/asr/"
+            @update:input-mode="inputMode = $event"
+            @update:output-mode="outputMode = $event"
             @send="handleSend"
             @stop="stopCurrentReply"
           />

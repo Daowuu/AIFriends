@@ -131,20 +131,20 @@ watch(() => route.query.q, (value) => {
 
             <div class="flex flex-1 justify-center">
               <label
-                class="flex h-11 w-full max-w-[580px] items-center gap-3 rounded-full border border-[#d9cdb6] bg-white/86 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                class="flex h-12 w-full max-w-[580px] items-center gap-3 rounded-full border border-[#d9cdb6] bg-white/86 px-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
               >
-                <AppIcon name="search" icon-class="h-4 w-4 text-[#7e6e56]" />
+                <AppIcon name="search" icon-class="h-4 w-4 shrink-0 text-[#7e6e56]" />
                 <input
                   v-model="searchQuery"
                   type="text"
-                  class="grow bg-transparent text-sm outline-none"
+                  class="h-full grow bg-transparent text-[15px] font-semibold leading-none text-[#22302b] outline-none placeholder:font-semibold placeholder:text-[#9b9387]"
                   placeholder="搜索你感兴趣的内容"
                   @keydown.enter.prevent="handleSearch"
                 />
               </label>
               <button
                 v-if="showSearchAction"
-                class="ml-2 hidden rounded-full border border-[#d4c7ae] bg-white/72 px-5 text-sm font-bold text-[#22302b] transition hover:bg-[#fff7e7] lg:inline-flex"
+                class="ml-2 hidden h-12 items-center gap-2 rounded-full border border-[#d4c7ae] bg-white/72 px-6 text-[15px] font-bold leading-none text-[#22302b] transition hover:bg-[#fff7e7] lg:inline-flex"
                 @click="handleSearch"
               >
                 <AppIcon name="search" icon-class="h-4 w-4" />

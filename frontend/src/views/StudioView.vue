@@ -476,7 +476,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="mx-auto w-[min(95vw,108rem)] px-4 py-6 sm:px-6 xl:px-8">
+  <section class="mx-auto w-full max-w-[104rem] px-4 py-6 sm:px-6 xl:px-8">
     <div class="rounded-[34px] border border-[#ded4c3] bg-[linear-gradient(135deg,rgba(255,251,243,0.95),rgba(247,243,234,0.92))] p-6 shadow-[0_30px_90px_-42px_rgba(15,23,42,0.24)]">
       <div class="flex flex-col gap-4 border-b border-[#e6ddcd] pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -600,7 +600,7 @@ onMounted(() => {
           </div>
 
           <div v-show="workspacePanel === 'diagnostics'" class="space-y-6">
-            <div class="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <section class="rounded-[32px] border border-[#ded4c3] bg-white/78 p-6 shadow-sm">
                 <div class="border-b border-[#e6ddcd] pb-4">
                   <h2 class="text-2xl font-black text-[#15231f]">试聊</h2>
@@ -692,7 +692,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-show="workspacePanel === 'overview'" class="grid gap-5 2xl:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
+          <div v-show="workspacePanel === 'overview'" class="grid gap-5 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
             <CharacterCard
               v-if="currentCharacter"
               :character="currentCharacter"

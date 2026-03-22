@@ -112,8 +112,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="mx-auto w-[min(95vw,96rem)] px-4 py-6 sm:px-6 xl:px-8">
-    <div class="mb-8 grid gap-6 2xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.72fr)]">
+  <section class="mx-auto w-full max-w-[104rem] px-4 py-6 sm:px-6 xl:px-8">
+    <div class="mb-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.82fr)]">
       <div class="overflow-hidden rounded-[34px] border border-base-200 bg-base-100 shadow-sm">
         <div class="grid gap-6 p-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(14rem,0.75fr)] xl:items-center">
           <div>
@@ -176,14 +176,18 @@ onBeforeUnmount(() => {
 
       <div
         v-else
-        class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-6 xl:gap-7"
+        class="flex flex-wrap gap-6 xl:gap-7"
       >
-        <CharacterCard
+        <div
           v-for="character in characters"
           :key="character.id"
-          :character="character"
-          @open="openCharacter"
-        />
+          class="w-full sm:w-[18.5rem] xl:w-[19rem] 2xl:w-[19.5rem]"
+        >
+          <CharacterCard
+            :character="character"
+            @open="openCharacter"
+          />
+        </div>
       </div>
 
       <div ref="sentinelRef" class="h-8" />

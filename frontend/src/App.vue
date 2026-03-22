@@ -31,7 +31,7 @@ watch(() => route.query.q, (value) => {
 <template>
   <div
     data-theme="cupcake"
-    class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(244,211,94,0.18),_transparent_24%),radial-gradient(circle_at_bottom_right,_rgba(52,211,153,0.14),_transparent_22%),linear-gradient(180deg,#fcfbf7_0%,#f6f3ec_100%)]"
+    class="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,211,94,0.18),_transparent_24%),radial-gradient(circle_at_bottom_right,_rgba(52,211,153,0.14),_transparent_22%),linear-gradient(180deg,#fcfbf7_0%,#f6f3ec_100%)]"
   >
     <div class="flex min-h-screen">
       <aside

@@ -122,31 +122,31 @@ const backgroundFigureStyle = computed(() => {
       <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(247,247,248,0.82)_0%,rgba(247,247,248,0.54)_24%,rgba(247,247,248,0.3)_48%,rgba(247,247,248,0.52)_72%,rgba(247,247,248,0.84)_100%)]" />
     </div>
 
-    <div class="relative mx-auto w-[min(96vw,112rem)] px-4 py-4 sm:px-5 xl:px-6">
-      <div class="xl:grid xl:grid-cols-[minmax(11rem,0.75fr)_minmax(42rem,1.9fr)_minmax(18rem,1fr)] xl:items-start xl:gap-7 2xl:grid-cols-[minmax(12rem,0.8fr)_minmax(46rem,2fr)_minmax(20rem,1.05fr)] 2xl:gap-8">
-        <div v-if="character" class="hidden xl:flex xl:flex-col xl:gap-4 xl:pt-2">
-          <div class="overflow-hidden rounded-[30px] border border-white/65 bg-white/58 p-4 shadow-[0_30px_90px_-42px_rgba(15,23,42,0.55)] backdrop-blur-2xl">
+    <div class="relative mx-auto w-full max-w-[108rem] px-4 py-4 sm:px-5 xl:px-6">
+      <div class="xl:grid xl:grid-cols-[minmax(9.75rem,0.62fr)_minmax(40rem,1.84fr)_minmax(18rem,1fr)] xl:items-start xl:gap-6 2xl:grid-cols-[minmax(10.25rem,0.66fr)_minmax(42rem,1.9fr)_minmax(19rem,1fr)] 2xl:gap-7">
+        <div v-if="character" class="hidden xl:flex xl:flex-col xl:items-end xl:gap-4 xl:pt-10">
+          <div class="w-full max-w-[10.75rem] xl:translate-x-1 2xl:translate-x-2 overflow-hidden rounded-[26px] border border-white/65 bg-white/58 p-3 shadow-[0_26px_70px_-42px_rgba(15,23,42,0.5)] backdrop-blur-2xl">
             <div class="relative overflow-hidden rounded-[24px] bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(240,244,255,0.72))]">
-              <div v-if="character.photo" class="aspect-[4/5] w-full bg-cover bg-center" :style="{ backgroundImage: `url(${character.photo})` }" />
-              <div v-else class="grid aspect-[4/5] w-full place-items-center bg-[linear-gradient(145deg,rgba(253,230,138,0.55),rgba(125,211,252,0.5))] text-4xl font-black text-base-content/65">
+              <div v-if="character.photo" class="aspect-[11/14] w-full bg-cover bg-center" :style="{ backgroundImage: `url(${character.photo})` }" />
+              <div v-else class="grid aspect-[11/14] w-full place-items-center bg-[linear-gradient(145deg,rgba(253,230,138,0.55),rgba(125,211,252,0.5))] text-4xl font-black text-base-content/65">
                 {{ character.name.slice(0, 1) }}
               </div>
               <div class="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.82)_100%)]" />
             </div>
 
-            <div class="mt-4">
+            <div class="mt-3">
               <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-base-content/35">Session</p>
-              <h2 class="mt-2 text-xl font-black tracking-tight text-base-content">{{ character.name }}</h2>
-              <p class="mt-2 max-h-[78px] overflow-hidden text-sm leading-6 text-base-content/58">
+              <h2 class="mt-2 text-[1.05rem] font-black tracking-tight text-base-content">{{ character.name }}</h2>
+              <p class="mt-2 max-h-[64px] overflow-hidden text-[12px] leading-5 text-base-content/58">
                 {{ character.profile || '已进入角色会话。' }}
               </p>
             </div>
 
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="rounded-full bg-base-100/92 px-3 py-1 text-xs font-medium text-base-content/65 shadow-sm">
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span class="rounded-full bg-base-100/92 px-2.5 py-1 text-[11px] font-medium text-base-content/65 shadow-sm">
                 {{ character.voice ? character.voice.name : '文本角色' }}
               </span>
-              <span class="rounded-full bg-base-100/92 px-3 py-1 text-xs font-medium text-base-content/65 shadow-sm">
+              <span class="rounded-full bg-base-100/92 px-2.5 py-1 text-[11px] font-medium text-base-content/65 shadow-sm">
                 {{ character.ai_config.memory_mode }}
               </span>
             </div>
@@ -195,7 +195,7 @@ const backgroundFigureStyle = computed(() => {
             {{ errorMessage }}
           </div>
 
-          <div class="min-h-[68vh] lg:h-[clamp(38rem,calc(100vh-11.5rem),52rem)] lg:min-h-[38rem] lg:max-h-[52rem]">
+          <div class="min-h-[68vh] lg:h-[clamp(39rem,calc(100vh-11.5rem),50rem)] lg:min-h-[39rem] lg:max-h-[50rem]">
             <div v-if="loading" class="grid h-full place-items-center rounded-[28px] border border-base-200 bg-base-100 shadow-sm">
               正在加载角色会话...
             </div>
@@ -207,8 +207,8 @@ const backgroundFigureStyle = computed(() => {
           </div>
         </div>
 
-        <div v-if="character && backgroundFigureStyle" class="hidden xl:flex xl:min-h-[70vh] xl:items-center xl:justify-center xl:pt-10">
-          <div class="relative h-[clamp(34rem,74vh,54rem)] w-[min(100%,30rem)] min-w-[18rem]">
+        <div v-if="character && backgroundFigureStyle" class="hidden xl:flex xl:min-h-[70vh] xl:items-center xl:justify-center xl:pt-8">
+          <div class="relative h-[clamp(33rem,72vh,50rem)] w-[min(100%,28rem)] min-w-[17.5rem]">
             <div class="absolute inset-0 rounded-[42px] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.26),rgba(255,255,255,0.03)_56%,transparent_78%)]" />
             <div
               class="absolute inset-0 scale-[1.05] rounded-[42px] bg-contain bg-center bg-no-repeat opacity-[0.16] blur-lg"

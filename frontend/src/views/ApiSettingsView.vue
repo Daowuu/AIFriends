@@ -267,7 +267,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section :class="props.embedded ? '' : 'mx-auto w-[min(95vw,108rem)] px-4 py-8 sm:px-6 lg:px-8'">
+  <section :class="props.embedded ? '' : 'mx-auto w-full max-w-[104rem] px-4 py-8 sm:px-6 lg:px-8'">
     <div
       :class="props.embedded
         ? 'rounded-[32px] border border-base-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95))] p-5 shadow-sm sm:p-6'
@@ -302,7 +302,7 @@ onMounted(() => {
         <span class="loading loading-spinner loading-lg text-primary" />
       </div>
 
-      <div v-else class="mt-8 grid gap-6 2xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.9fr)]">
+      <div v-else class="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.42fr)_minmax(20rem,0.9fr)]">
         <form class="space-y-6" @submit.prevent>
           <div class="overflow-hidden rounded-[32px] border border-base-200 bg-white shadow-[0_14px_50px_rgba(15,23,42,0.06)]">
             <div class="flex flex-col gap-5 border-b border-base-200/80 px-6 py-6 sm:px-7 lg:flex-row lg:items-start lg:justify-between">

@@ -40,7 +40,7 @@ const coverImage = computed(() => props.character.background_image || props.char
 
 <template>
   <article
-    class="group overflow-hidden border transition"
+    class="group w-full overflow-hidden border transition"
     :class="isStudioMode
       ? 'rounded-[30px] border-[#d9cfbe] bg-[linear-gradient(180deg,rgba(255,250,241,0.98),rgba(250,246,236,0.94))] shadow-[0_16px_46px_rgba(15,23,42,0.06)] hover:-translate-y-1 hover:shadow-[0_24px_58px_rgba(15,23,42,0.10)]'
       : 'rounded-[32px] border-[#ddd1be] bg-[linear-gradient(180deg,rgba(255,252,246,0.98),rgba(250,245,236,0.94))] shadow-[0_16px_44px_rgba(15,23,42,0.08)] hover:-translate-y-1 hover:shadow-[0_22px_56px_rgba(15,23,42,0.12)]'"

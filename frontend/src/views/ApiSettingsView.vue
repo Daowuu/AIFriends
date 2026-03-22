@@ -31,10 +31,10 @@ const modelName = ref('')
 const apiKey = ref('')
 const hasExistingApiKey = ref(false)
 const clearApiKey = ref(false)
-const chatSupportsDashscopeAudio = ref(false)
 const asrEnabled = ref(false)
 const asrApiBase = ref('')
 const asrModelName = ref('')
+const ttsModelName = ref('')
 const asrApiKey = ref('')
 const hasExistingAsrApiKey = ref(false)
 const clearAsrApiKey = ref(false)
@@ -50,6 +50,7 @@ const resolvedApiBasePreview = computed(() => apiBase.value.trim() || selectedPr
 const resolvedModelPreview = computed(() => modelName.value.trim() || selectedProvider.value?.default_model_name || '')
 const resolvedAsrApiBasePreview = computed(() => asrApiBase.value.trim() || 'https://dashscope.aliyuncs.com/compatible-mode/v1')
 const resolvedAsrModelPreview = computed(() => asrModelName.value.trim() || 'qwen3-asr-flash')
+const resolvedTtsModelPreview = computed(() => ttsModelName.value.trim() || 'cosyvoice-v3.5-plus')
 
 const applySettings = (settings: AISettings) => {
   enabled.value = settings.enabled
@@ -59,10 +60,10 @@ const applySettings = (settings: AISettings) => {
   hasExistingApiKey.value = settings.has_api_key
   clearApiKey.value = false
   apiKey.value = ''
-  chatSupportsDashscopeAudio.value = settings.chat_supports_dashscope_audio
   asrEnabled.value = settings.asr_enabled
   asrApiBase.value = settings.asr_api_base
   asrModelName.value = settings.asr_model_name
+  ttsModelName.value = settings.tts_model_name
   hasExistingAsrApiKey.value = settings.has_asr_api_key
   clearAsrApiKey.value = false
   asrApiKey.value = ''
@@ -136,7 +137,6 @@ const handleSaveChatConfig = async () => {
       model_name: modelName.value.trim(),
       api_key: apiKey.value.trim(),
       clear_api_key: clearApiKey.value,
-      chat_supports_dashscope_audio: chatSupportsDashscopeAudio.value,
     })
 
     providerOptions.value = response.data.providers
@@ -169,6 +169,7 @@ const handleSaveAsrConfig = async () => {
       asr_enabled: asrEnabled.value,
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
+      tts_model_name: ttsModelName.value.trim(),
       asr_api_key: asrApiKey.value.trim(),
       clear_asr_api_key: clearAsrApiKey.value,
     })
@@ -176,9 +177,9 @@ const handleSaveAsrConfig = async () => {
     providerOptions.value = response.data.providers
     applySettings(response.data.settings)
     runtimeSummary.value = response.data.runtime_summary
-    asrSuccessMessage.value = '语音识别配置已保存。'
+    asrSuccessMessage.value = '语音配置已保存。'
   } catch (error: unknown) {
-    asrErrorMessage.value = '语音识别配置保存失败，请稍后重试。'
+    asrErrorMessage.value = '语音配置保存失败，请稍后重试。'
     if (typeof error === 'object' && error && 'response' in error) {
       const response = (error as {
         response?: { data?: { detail?: string } }
@@ -318,7 +319,7 @@ onMounted(() => {
                 </div>
                 <h2 class="mt-3 text-2xl font-black tracking-tight text-base-content">聊天模型配置</h2>
                 <p class="mt-2 text-sm leading-7 text-base-content/60">
-                  把运行方式、提供方、模型、网关地址和聊天密钥收在一张卡片里。你改完这块，只会影响聊天，不会顺手改掉 ASR。
+                  把运行方式、提供方、模型、网关地址和聊天密钥收在一张卡片里。你改完这块，只影响聊天。
                 </p>
               </div>
 
@@ -403,22 +404,8 @@ onMounted(() => {
                     placeholder="留空表示保持当前已保存的密钥不变"
                   >
                   <span class="mt-2 text-xs leading-6 text-base-content/55">
-                    不勾选删除并且输入框留空时，会继续复用你之前保存的聊天 key。
+                    输入新 key 会覆盖旧值；留空则保持当前已保存的聊天 key。
                   </span>
-                </label>
-              </div>
-
-              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
-                <label class="label cursor-pointer justify-start gap-3 p-0">
-                  <input v-model="clearApiKey" type="checkbox" class="checkbox checkbox-sm checkbox-error" />
-                  <span class="text-sm text-base-content/75">保存时删除当前已保存的 API Key</span>
-                </label>
-              </div>
-
-              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
-                <label class="label cursor-pointer justify-start gap-3 p-0">
-                  <input v-model="chatSupportsDashscopeAudio" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
-                  <span class="text-sm text-base-content/75">这套聊天配置也可用于 DashScope ASR / TTS 代理网关</span>
                 </label>
               </div>
 
@@ -457,22 +444,22 @@ onMounted(() => {
             <div class="flex flex-col gap-5 border-b border-base-200/80 px-6 py-6 sm:px-7 lg:flex-row lg:items-start lg:justify-between">
               <div class="max-w-2xl">
                 <div class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
-                  ASR
+                  Voice
                 </div>
-                <h2 class="mt-3 text-2xl font-black tracking-tight text-base-content">语音识别配置</h2>
+                <h2 class="mt-3 text-2xl font-black tracking-tight text-base-content">语音配置</h2>
                 <p class="mt-2 text-sm leading-7 text-base-content/60">
-                  这块只负责语音输入转文字。当前后端走阿里云百炼兼容 ASR，所以默认按 DashScope 的模型和地址预设。
+                  这块统一管理语音输入和语音播报。ASR 与 TTS 共用同一套语音运行时，TTS 额外指定播报模型。
                 </p>
               </div>
 
               <div class="grid gap-3 sm:min-w-[230px]">
                 <div class="rounded-[24px] border border-base-200 bg-amber-50/60 px-4 py-3 text-sm shadow-sm">
-                  <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">ASR Key</div>
+                  <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">语音 Key</div>
                   <div class="mt-2 font-semibold text-base-content">{{ hasExistingAsrApiKey ? '已保存' : '未保存' }}</div>
                 </div>
                 <div class="rounded-[24px] border border-base-200 bg-amber-50/60 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">生效方式</div>
-                  <div class="mt-2 font-semibold text-base-content/75">{{ asrEnabled ? '独立配置' : '复用聊天或环境' }}</div>
+                  <div class="mt-2 font-semibold text-base-content/75">{{ asrEnabled ? '已启用语音运行时' : '未启用' }}</div>
                 </div>
               </div>
             </div>
@@ -481,13 +468,13 @@ onMounted(() => {
               <div class="rounded-[28px] border border-amber-100 bg-[linear-gradient(135deg,rgba(255,251,235,0.95),rgba(248,250,252,0.9))] p-5">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div class="max-w-2xl">
-                    <div class="text-sm font-bold text-base-content">独立 ASR 配置</div>
+                    <div class="text-sm font-bold text-base-content">语音运行时</div>
                     <p class="mt-1 text-sm leading-7 text-base-content/60">
-                      开启后，语音识别优先走这里保存的专用 ASR key / base / model；关闭后，会先尝试复用聊天配置，再回退到服务端环境变量。
+                      开启后，语音输入和语音播报都会走这里保存的专用语音 key / base / model；关闭后，当前实例不启用语音链路。
                     </p>
                   </div>
                   <label class="label cursor-pointer justify-start gap-3 rounded-full border border-amber-200 bg-white px-4 py-3 shadow-sm">
-                    <span class="text-sm font-semibold text-base-content">启用单独 ASR 配置</span>
+                    <span class="text-sm font-semibold text-base-content">启用语音运行时</span>
                     <input v-model="asrEnabled" type="checkbox" class="toggle toggle-warning" />
                   </label>
                 </div>
@@ -495,7 +482,7 @@ onMounted(() => {
 
               <div class="grid gap-5 md:grid-cols-2">
                 <label class="form-control">
-                  <span class="mb-2 text-sm font-bold text-base-content/70">ASR 模型名</span>
+                  <span class="mb-2 text-sm font-bold text-base-content/70">识别模型</span>
                   <input
                     v-model="asrModelName"
                     type="text"
@@ -509,7 +496,7 @@ onMounted(() => {
                 </label>
 
                 <label class="form-control">
-                  <span class="mb-2 text-sm font-bold text-base-content/70">ASR API Base</span>
+                  <span class="mb-2 text-sm font-bold text-base-content/70">API Base</span>
                   <input
                     v-model="asrApiBase"
                     type="text"
@@ -523,7 +510,21 @@ onMounted(() => {
                 </label>
 
                 <label class="form-control md:col-span-2">
-                  <span class="mb-2 text-sm font-bold text-base-content/70">ASR API Key</span>
+                  <span class="mb-2 text-sm font-bold text-base-content/70">播报模型</span>
+                  <input
+                    v-model="ttsModelName"
+                    type="text"
+                    maxlength="128"
+                    class="input input-bordered w-full bg-base-50"
+                    placeholder="cosyvoice-v3.5-plus"
+                  >
+                  <span class="mt-2 text-xs leading-6 text-base-content/55">
+                    角色语音播报使用这个模型。留空时默认使用 `cosyvoice-v3.5-plus`。
+                  </span>
+                </label>
+
+                <label class="form-control md:col-span-2">
+                  <span class="mb-2 text-sm font-bold text-base-content/70">API Key</span>
                   <input
                     v-model="asrApiKey"
                     type="password"
@@ -532,15 +533,8 @@ onMounted(() => {
                     placeholder="留空表示保持当前已保存的 ASR 密钥不变"
                   >
                   <span class="mt-2 text-xs leading-6 text-base-content/55">
-                    如果你希望语音识别和聊天共用一套阿里云 key，可以不开启独立 ASR 配置。
+                    输入新 key 会覆盖旧值；留空则保持当前已保存的 ASR key。这里保存的是语音链路自己的 key，不再复用聊天配置。
                   </span>
-                </label>
-              </div>
-
-              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
-                <label class="label cursor-pointer justify-start gap-3 p-0">
-                  <input v-model="clearAsrApiKey" type="checkbox" class="checkbox checkbox-sm checkbox-error" />
-                  <span class="text-sm text-base-content/75">保存时删除当前已保存的 ASR API Key</span>
                 </label>
               </div>
 
@@ -569,7 +563,7 @@ onMounted(() => {
                   :disabled="chatSavePending || asrSavePending || testPending || testAsrPending"
                   @click="handleSaveAsrConfig"
                 >
-                  {{ asrSavePending ? '保存中...' : '保存语音识别配置' }}
+                  {{ asrSavePending ? '保存中...' : '保存语音配置' }}
                 </button>
               </div>
             </div>
@@ -606,9 +600,9 @@ onMounted(() => {
 
               <div class="rounded-[24px] border border-amber-100 bg-amber-50/60 p-4">
                 <div class="flex items-center justify-between gap-3">
-                  <div class="text-sm font-black text-base-content">语音识别</div>
+                  <div class="text-sm font-black text-base-content">语音运行时</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">
-                    {{ asrEnabled ? '独立 ASR' : '复用聊天链路' }}
+                    {{ asrEnabled ? '已启用' : '未启用' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">
@@ -617,8 +611,12 @@ onMounted(() => {
                     <div class="mt-1 break-all text-base-content/75">{{ resolvedAsrApiBasePreview }}</div>
                   </div>
                   <div>
-                    <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">Model</div>
+                    <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">识别模型</div>
                     <div class="mt-1 break-all text-base-content/75">{{ resolvedAsrModelPreview }}</div>
+                  </div>
+                  <div>
+                    <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">播报模型</div>
+                    <div class="mt-1 break-all text-base-content/75">{{ resolvedTtsModelPreview }}</div>
                   </div>
                 </div>
               </div>
@@ -659,12 +657,6 @@ onMounted(() => {
                 </div>
                 <div class="mt-2 break-all text-base-content/65">
                   {{ runtimeSummary?.asr_runtime.model_name || '未设置模型' }}
-                </div>
-                <div
-                  v-if="runtimeSummary?.dashscope_audio_reuse_source"
-                  class="mt-2 text-xs leading-6 text-base-content/55"
-                >
-                  语音链路复用来源：{{ runtimeSummary.dashscope_audio_reuse_source }}
                 </div>
               </div>
 

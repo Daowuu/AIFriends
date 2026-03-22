@@ -97,9 +97,6 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - `initiative_level`
 - `memory_mode`
 - `persona_boundary`
-- `tools_enabled`
-- `tools_require_confirmation`
-- `tools_read_only`
 
 这些字段共同决定：
 
@@ -160,7 +157,6 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 - `API_KEY`
 - `API_BASE`
 - `CHAT_MODEL`
-- `CHAT_SUPPORTS_DASHSCOPE_AUDIO`
 - `ASR_ENABLED`
 - `ASR_API_KEY`
 - `ASR_API_BASE`
@@ -216,27 +212,15 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 - `invalid` 直接暴露配置错误
 - `missing` 才允许进入本地 fallback 回复
 
-### 4.2 DashScope 音频复用
-
-聊天配置是否允许复用给语音链路，当前由三层判定：
-
-1. 显式开启 `chat_supports_dashscope_audio`
-2. provider 本身是 `aliyun`
-3. `api_base` 命中 DashScope 域名兜底
-
-同时输出：
-
-- `dashscope_audio_reuse_source`
-
-### 4.3 ASR runtime
+### 4.2 语音 runtime
 
 当前优先级：
 
-1. 本地独立 ASR 配置
-2. 复用聊天配置
-3. 系统默认 ASR 配置
+1. 如果 `ASR_ENABLED=true`，直接读取 `ASR_API_KEY / ASR_API_BASE / ASR_MODEL`
+2. 这套语音运行时同时供语音识别和语音播报使用
+3. 如果未启用，则当前实例不启用语音链路
 
-### 4.4 TTS runtime
+### 4.3 TTS runtime
 
 TTS 当前依赖 DashScope 语音链路：
 

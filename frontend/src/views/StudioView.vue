@@ -113,9 +113,9 @@ const diagnosticSummary = computed(() => {
     level: 'success',
     title: '聊天运行态正常',
     detail: `当前会优先使用 ${summary.chat_runtime.label}。`,
-    action: summary.dashscope_audio_reuse_source
-      ? `当前网关：${summary.chat_runtime.api_base || '未显式设置'}；语音链路复用来源：${summary.dashscope_audio_reuse_source}`
-      : (summary.chat_runtime.api_base ? `当前网关：${summary.chat_runtime.api_base}` : '可以直接开始试聊或进入正式聊天。'),
+    action: summary.chat_runtime.api_base
+      ? `当前网关：${summary.chat_runtime.api_base}`
+      : '可以直接开始试聊或进入正式聊天。',
   }
 })
 
@@ -164,9 +164,6 @@ const buildCharacterFormData = (payload: CharacterFormPayload) => {
   formData.append('initiative_level', payload.aiConfig.initiative_level)
   formData.append('memory_mode', payload.aiConfig.memory_mode)
   formData.append('persona_boundary', payload.aiConfig.persona_boundary)
-  formData.append('tools_enabled', String(payload.aiConfig.tools_enabled))
-  formData.append('tools_require_confirmation', String(payload.aiConfig.tools_require_confirmation))
-  formData.append('tools_read_only', String(payload.aiConfig.tools_read_only))
   if (payload.photoFile) formData.append('photo', payload.photoFile)
   if (payload.backgroundImageFile) formData.append('background_image', payload.backgroundImageFile)
   if (payload.removePhoto) formData.append('remove_photo', 'true')

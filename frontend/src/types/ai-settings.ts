@@ -14,13 +14,13 @@ export type AISettings = {
   has_api_key: boolean
   resolved_api_base: string
   resolved_model_name: string
-  chat_supports_dashscope_audio: boolean
   asr_enabled: boolean
   asr_api_base: string
   asr_model_name: string
   has_asr_api_key: boolean
   resolved_asr_api_base: string
   resolved_asr_model_name: string
+  tts_model_name: string
   updated_at: string
 }
 
@@ -49,7 +49,6 @@ export type AIRuntimeSummary = {
   tts_runtime: AIRuntimeConfig
   chat_runtime_status: 'ok' | 'invalid' | 'missing'
   chat_runtime_reason: string
-  dashscope_audio_reuse_source: string
   recent_character_summary: AIRecentCharacterSummary | null
   prompt_layers: string[]
 }

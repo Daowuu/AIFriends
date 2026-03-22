@@ -118,7 +118,7 @@ def message_tts_view(request):
     runtime_config = get_dashscope_runtime_config()
     if not runtime_config:
         return Response({
-            'detail': '当前语音播报未启用，请先在 Studio 的运行时配置里补全可用的 TTS 或兼容 DashScope 的聊天配置。',
+            'detail': '当前语音播报未启用，请先在 Studio 的运行时配置里补全语音运行时配置。',
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -151,7 +151,7 @@ def preview_tts_view(request):
     runtime_config = get_dashscope_runtime_config()
     if not runtime_config:
         return Response({
-            'detail': '当前语音播报未启用，请先在 Studio 的运行时配置里补全可用的 TTS 或兼容 DashScope 的聊天配置。',
+            'detail': '当前语音播报未启用，请先在 Studio 的运行时配置里补全语音运行时配置。',
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:

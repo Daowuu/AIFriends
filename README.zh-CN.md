@@ -57,7 +57,6 @@ API_PROVIDER="aliyun"
 API_KEY=""
 API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 CHAT_MODEL="qwen-plus"
-CHAT_SUPPORTS_DASHSCOPE_AUDIO="true"
 
 ASR_ENABLED="false"
 ASR_API_KEY=""

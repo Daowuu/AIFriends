@@ -53,11 +53,11 @@ class RuntimeEnvSettings:
     api_key: str
     api_base: str
     model_name: str
-    chat_supports_dashscope_audio: bool
     asr_enabled: bool
     asr_api_key: str
     asr_api_base: str
     asr_model_name: str
+    tts_model_name: str
     updated_at: str
     env_path: Path
 
@@ -124,6 +124,7 @@ def get_local_runtime_settings():
     asr_api_key = _env_str(values, 'ASR_API_KEY', '')
     asr_api_base = _env_str(values, 'ASR_API_BASE', '')
     asr_model_name = _env_str(values, 'ASR_MODEL', '')
+    tts_model_name = _env_str(values, 'TTS_MODEL', 'cosyvoice-v3.5-plus') or 'cosyvoice-v3.5-plus'
 
     enabled = _env_bool(values, 'RUNTIME_ENABLED', bool(api_key or api_base))
     asr_enabled = _env_bool(values, 'ASR_ENABLED', bool(asr_api_key or asr_api_base))
@@ -134,11 +135,11 @@ def get_local_runtime_settings():
         api_key=api_key,
         api_base=api_base,
         model_name=model_name,
-        chat_supports_dashscope_audio=_env_bool(values, 'CHAT_SUPPORTS_DASHSCOPE_AUDIO', False),
         asr_enabled=asr_enabled,
         asr_api_key=asr_api_key,
         asr_api_base=asr_api_base,
         asr_model_name=asr_model_name,
+        tts_model_name=tts_model_name,
         updated_at=_format_file_updated_at(env_path),
         env_path=env_path,
     )
@@ -154,13 +155,13 @@ def serialize_user_ai_settings(settings: RuntimeEnvSettings):
         'has_api_key': bool(settings.api_key.strip()),
         'resolved_api_base': settings.api_base.strip() or provider_config['default_api_base'],
         'resolved_model_name': settings.model_name.strip() or provider_config['default_model_name'],
-        'chat_supports_dashscope_audio': settings.chat_supports_dashscope_audio,
         'asr_enabled': settings.asr_enabled,
         'asr_api_base': settings.asr_api_base,
         'asr_model_name': settings.asr_model_name,
         'has_asr_api_key': bool(settings.asr_api_key.strip()),
         'resolved_asr_api_base': settings.asr_api_base.strip() or ASR_DEFAULT_API_BASE,
         'resolved_asr_model_name': settings.asr_model_name.strip() or ASR_DEFAULT_MODEL_NAME,
+        'tts_model_name': settings.tts_model_name,
         'updated_at': settings.updated_at,
     }
 
@@ -195,17 +196,6 @@ def is_dashscope_compatible_api_base(api_base: str):
         'dashscope-intl.aliyuncs.com',
     ))
 
-
-def resolve_dashscope_audio_reuse_source(*, explicit_enabled: bool, provider: str, api_base: str, source_prefix: str):
-    if explicit_enabled:
-        return f'{source_prefix}_explicit_toggle'
-    if provider == 'aliyun':
-        return f'{source_prefix}_provider_default'
-    if is_dashscope_compatible_api_base(api_base):
-        return f'{source_prefix}_domain_fallback'
-    return ''
-
-
 def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
     provider = str(payload.get('provider', settings.provider)).strip() or settings.provider
     provider_config = get_provider_config(provider)
@@ -222,9 +212,6 @@ def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
         'api_base': api_base,
         'model_name': model_name,
         'clear_api_key': clear_api_key,
-        'chat_supports_dashscope_audio': str(
-            payload.get('chat_supports_dashscope_audio', settings.chat_supports_dashscope_audio),
-        ).lower() in {'1', 'true', 'yes', 'on'},
     }
 
 
@@ -235,12 +222,14 @@ def resolve_user_asr_settings_payload(settings: RuntimeEnvSettings, payload):
     asr_api_key = '' if clear_asr_api_key else (raw_api_key or settings.asr_api_key.strip())
     asr_api_base = str(payload.get('asr_api_base', settings.asr_api_base)).strip() or ASR_DEFAULT_API_BASE
     asr_model_name = str(payload.get('asr_model_name', settings.asr_model_name)).strip() or ASR_DEFAULT_MODEL_NAME
+    tts_model_name = str(payload.get('tts_model_name', settings.tts_model_name)).strip() or 'cosyvoice-v3.5-plus'
 
     return {
         'asr_enabled': asr_enabled,
         'asr_api_key': asr_api_key,
         'asr_api_base': asr_api_base,
         'asr_model_name': asr_model_name,
+        'tts_model_name': tts_model_name,
         'clear_asr_api_key': clear_asr_api_key,
     }
 
@@ -258,18 +247,13 @@ def save_runtime_env_settings(chat_payload=None, asr_payload=None):
         set_key(env_path, 'API_KEY', chat_payload['api_key'], quote_mode='always')
         set_key(env_path, 'API_BASE', chat_payload['api_base'], quote_mode='always')
         set_key(env_path, 'CHAT_MODEL', chat_payload['model_name'], quote_mode='always')
-        set_key(
-            env_path,
-            'CHAT_SUPPORTS_DASHSCOPE_AUDIO',
-            'true' if chat_payload['chat_supports_dashscope_audio'] else 'false',
-            quote_mode='always',
-        )
 
     if asr_payload is not None:
         set_key(env_path, 'ASR_ENABLED', 'true' if asr_payload['asr_enabled'] else 'false', quote_mode='always')
         set_key(env_path, 'ASR_API_KEY', asr_payload['asr_api_key'], quote_mode='always')
         set_key(env_path, 'ASR_API_BASE', asr_payload['asr_api_base'], quote_mode='always')
         set_key(env_path, 'ASR_MODEL', asr_payload['asr_model_name'], quote_mode='always')
+        set_key(env_path, 'TTS_MODEL', asr_payload['tts_model_name'], quote_mode='always')
 
     return get_local_runtime_settings()
 
@@ -283,7 +267,6 @@ def get_server_ai_runtime_defaults():
             'api_key': settings.api_key,
             'api_base': settings.api_base,
             'model_name': settings.model_name,
-            'supports_dashscope_audio': settings.chat_supports_dashscope_audio,
         },
         'asr': {
             'enabled': settings.asr_enabled,
@@ -292,8 +275,7 @@ def get_server_ai_runtime_defaults():
             'model_name': settings.asr_model_name,
         },
         'tts': {
-            'model_name': str(getattr(django_settings, 'AI_RUNTIME', {}).get('tts', {}).get('model_name', '')).strip()
-            or 'cosyvoice-v3.5-plus',
+            'model_name': settings.tts_model_name,
         },
         'demo_quota': getattr(django_settings, 'AI_RUNTIME', {}).get('demo_quota', {}),
     }
@@ -319,12 +301,6 @@ def get_runtime_ai_resolution():
     if not model_name:
         return {'status': 'invalid', 'reason': 'local_missing_model_name', 'config': None}
 
-    dashscope_audio_reuse_source = resolve_dashscope_audio_reuse_source(
-        explicit_enabled=bool(chat.get('supports_dashscope_audio', False)),
-        provider=provider,
-        api_base=api_base,
-        source_prefix='runtime_env',
-    )
     return {
         'status': 'ok',
         'reason': '',
@@ -334,8 +310,6 @@ def get_runtime_ai_resolution():
             'api_key': api_key,
             'api_base': api_base,
             'model_name': model_name,
-            'dashscope_audio_enabled': bool(dashscope_audio_reuse_source),
-            'dashscope_audio_reuse_source': dashscope_audio_reuse_source,
             'label': 'Studio / .env 同步配置',
         },
     }
@@ -359,20 +333,7 @@ def get_dashscope_runtime_config():
             'api_key': api_key,
             'api_base': str(asr.get('api_base', '')).strip() or ASR_DEFAULT_API_BASE,
             'model_name': str(asr.get('model_name', '')).strip() or ASR_DEFAULT_MODEL_NAME,
-            'label': 'Studio / .env 独立 ASR 配置',
-        }
-
-    runtime_resolution = get_runtime_ai_resolution()
-    runtime_config = runtime_resolution.get('config') or {}
-    if runtime_config.get('dashscope_audio_enabled'):
-        return {
-            'source': runtime_config['source'],
-            'provider': 'aliyun',
-            'api_key': runtime_config['api_key'],
-            'api_base': runtime_config['api_base'],
-            'model_name': str(asr.get('model_name', '')).strip() or ASR_DEFAULT_MODEL_NAME,
-            'label': '复用聊天运行时配置',
-            'dashscope_audio_reuse_source': runtime_config.get('dashscope_audio_reuse_source', ''),
+            'label': 'Studio / .env 语音运行时配置',
         }
 
     return None
@@ -435,14 +396,10 @@ def get_runtime_summary():
 
     return {
         'chat_runtime': serialize_runtime_config(chat_runtime_config, fallback_label='当前未启用聊天配置'),
-        'asr_runtime': serialize_runtime_config(asr_runtime_config, fallback_label='当前未启用独立 ASR 或聊天语音复用'),
+        'asr_runtime': serialize_runtime_config(asr_runtime_config, fallback_label='当前未启用语音运行时'),
         'tts_runtime': serialize_runtime_config(tts_runtime_config, fallback_label='当前未启用语音播报'),
         'chat_runtime_status': chat_resolution['status'],
         'chat_runtime_reason': chat_resolution['reason'],
-        'dashscope_audio_reuse_source': (
-            (asr_runtime_config or {}).get('dashscope_audio_reuse_source')
-            or (chat_runtime_config or {}).get('dashscope_audio_reuse_source', '')
-        ),
         'recent_character_summary': recent_character_summary,
         'prompt_layers': [
             'platform',

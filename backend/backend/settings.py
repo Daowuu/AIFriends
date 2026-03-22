@@ -160,7 +160,6 @@ AI_RUNTIME = {
         'api_key': os.getenv('API_KEY', '').strip(),
         'api_base': os.getenv('API_BASE', '').strip(),
         'model_name': os.getenv('CHAT_MODEL', 'qwen-plus').strip() or 'qwen-plus',
-        'supports_dashscope_audio': get_env_bool('CHAT_SUPPORTS_DASHSCOPE_AUDIO', False),
     },
     'asr': {
         'api_key': os.getenv('ASR_API_KEY', '').strip(),

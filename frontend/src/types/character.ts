@@ -18,9 +18,6 @@ export type CharacterAIConfig = {
   initiative_level: 'passive' | 'balanced' | 'proactive'
   memory_mode: 'off' | 'standard' | 'enhanced'
   persona_boundary: 'grounded' | 'companion' | 'dramatic'
-  tools_enabled: boolean
-  tools_require_confirmation: boolean
-  tools_read_only: boolean
 }
 
 export type Character = {

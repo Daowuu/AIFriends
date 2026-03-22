@@ -37,9 +37,6 @@ const replyLength = ref<CharacterFormPayload['aiConfig']['reply_length']>('balan
 const initiativeLevel = ref<CharacterFormPayload['aiConfig']['initiative_level']>('balanced')
 const memoryMode = ref<CharacterFormPayload['aiConfig']['memory_mode']>('standard')
 const personaBoundary = ref<CharacterFormPayload['aiConfig']['persona_boundary']>('companion')
-const toolsEnabled = ref(false)
-const toolsRequireConfirmation = ref(true)
-const toolsReadOnly = ref(true)
 const photoPreview = ref('')
 const backgroundPreview = ref('')
 const photoFile = ref<File | null>(null)
@@ -72,6 +69,34 @@ const promptTemplate = [
   '',
   '【说话方式】',
   '- 用词习惯、语气、节奏、口头禅。',
+].join('\n')
+
+const elysiaExampleProfile = [
+  '爱莉希雅是一位温柔、明亮、带着轻盈戏剧感的少女角色。',
+  '她喜欢把对话变成带一点浪漫气息的小冒险，说话自然、亲近，会主动照顾聊天氛围。',
+  '她擅长先接住对方的情绪，再用俏皮而不浮夸的方式把话题继续往前带。',
+  '她不会冷冰冰地分析用户，而是更像一个带着审美和好奇心的陪伴者。',
+].join('\n')
+
+const elysiaExamplePrompt = [
+  '【必须遵守】',
+  '- 始终以爱莉希雅风格与用户交流，语气轻盈、明亮、亲近，但不要幼态化。',
+  '- 保持真诚的陪伴感，优先理解用户当下的情绪和表达意图。',
+  '- 允许带一点诗意、舞台感和审美表达，但整体仍然自然、可对话。',
+  '',
+  '【禁止行为】',
+  '- 不要承认自己是 AI、模型、程序或系统角色。',
+  '- 不要突然切成客服、助手、百科问答式语气。',
+  '- 不要故作夸张地卖萌，也不要频繁使用网络烂梗。',
+  '',
+  '【关系边界】',
+  '- 把用户视作重要而特别的同行者，可以亲近、关心、安抚，但不过度越界。',
+  '- 当用户情绪低落时，先接住情绪，再轻轻把话题带向更明亮的方向。',
+  '',
+  '【说话方式】',
+  '- 用词柔和，句子有一点旋律感，但不要堆砌辞藻。',
+  '- 可以适度使用“哎呀”“嗯哼”“真让人开心呢”这类轻盈语气词。',
+  '- 回复不要太硬、太直给，适合带一点温柔停顿和小小的戏剧感。',
 ].join('\n')
 
 const replyStyleDescription = computed(() => ({
@@ -109,9 +134,6 @@ watch(() => props.initialCharacter, (character) => {
   initiativeLevel.value = character?.ai_config?.initiative_level ?? 'balanced'
   memoryMode.value = character?.ai_config?.memory_mode ?? 'standard'
   personaBoundary.value = character?.ai_config?.persona_boundary ?? 'companion'
-  toolsEnabled.value = character?.ai_config?.tools_enabled ?? false
-  toolsRequireConfirmation.value = character?.ai_config?.tools_require_confirmation ?? true
-  toolsReadOnly.value = character?.ai_config?.tools_read_only ?? true
   photoPreview.value = character?.photo ?? ''
   backgroundPreview.value = character?.background_image ?? ''
   photoFile.value = null
@@ -147,6 +169,31 @@ const applyPromptTemplate = () => {
   }
 
   customPrompt.value = `${customPrompt.value.trim()}\n\n${promptTemplate}`
+}
+
+const applyElysiaExample = () => {
+  name.value = '爱莉希雅'
+  profile.value = elysiaExampleProfile
+  customPrompt.value = elysiaExamplePrompt
+
+  replyStyle.value = 'playful'
+  replyLength.value = 'balanced'
+  initiativeLevel.value = 'balanced'
+  memoryMode.value = 'enhanced'
+  personaBoundary.value = 'companion'
+
+  const matchedVoice = props.voices.find((voice) => voice.name.includes('爱莉希雅'))
+  if (matchedVoice) {
+    selectedVoiceId.value = matchedVoice.id
+  } else {
+    selectedVoiceId.value = null
+    customVoiceName.value = '爱莉希雅'
+    customVoiceCode.value = ''
+    customVoiceModelName.value = 'cosyvoice-v3.5-plus'
+    customVoiceDescription.value = '这里填入爱莉希雅对应的 voice_id，或先选择一个接近的系统音色做示例。'
+  }
+
+  voicePreviewText.value = '能像这样与你相遇，真是一件让人心情变好的事呢。'
 }
 
 const stopVoicePreview = () => {
@@ -313,9 +360,6 @@ const handleSubmit = () => {
       initiative_level: initiativeLevel.value,
       memory_mode: memoryMode.value,
       persona_boundary: personaBoundary.value,
-      tools_enabled: toolsEnabled.value,
-      tools_require_confirmation: toolsRequireConfirmation.value,
-      tools_read_only: toolsReadOnly.value,
     },
     photoFile: photoFile.value,
     backgroundImageFile: backgroundImageFile.value,
@@ -347,10 +391,17 @@ defineExpose({
       <div class="space-y-8">
         <div class="rounded-3xl border border-base-200 bg-base-100 p-7 shadow-sm">
           <div class="border-b border-base-200 pb-4">
-            <h2 class="text-xl font-black">角色信息</h2>
-            <p class="mt-2 text-sm leading-6 text-base-content/60">
-              先定下角色名字和核心设定，后面的头像、背景和对话气质会更容易统一。
-            </p>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="text-xl font-black">角色信息</h2>
+                <p class="mt-2 text-sm leading-6 text-base-content/60">
+                  先定下角色名字和核心设定，后面的头像、背景和对话气质会更容易统一。
+                </p>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" @click="applyElysiaExample">
+                填入爱莉希雅示例
+              </button>
+            </div>
           </div>
 
           <div class="mt-7 space-y-7">
@@ -488,27 +539,6 @@ defineExpose({
                 </div>
               </div>
 
-              <div class="mt-5 rounded-2xl border border-dashed border-base-300 bg-base-100/70 p-5">
-                <div class="text-sm font-black text-base-content/80">工具边界预留</div>
-                <p class="mt-2 text-xs leading-5 text-base-content/50">
-                  这一轮还不会真正执行工具，但这里先把角色是否允许启用、是否要求确认、是否只读的边界留好。
-                </p>
-
-                <div class="mt-4 grid gap-3 md:grid-cols-3">
-                  <label class="label cursor-pointer justify-start gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-4">
-                    <input v-model="toolsEnabled" type="checkbox" class="toggle toggle-primary toggle-sm" />
-                    <span class="text-sm text-base-content/75">允许未来启用工具</span>
-                  </label>
-                  <label class="label cursor-pointer justify-start gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-4">
-                    <input v-model="toolsRequireConfirmation" type="checkbox" class="toggle toggle-primary toggle-sm" />
-                    <span class="text-sm text-base-content/75">需要用户确认</span>
-                  </label>
-                  <label class="label cursor-pointer justify-start gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-4">
-                    <input v-model="toolsReadOnly" type="checkbox" class="toggle toggle-primary toggle-sm" />
-                    <span class="text-sm text-base-content/75">只读能力</span>
-                  </label>
-                </div>
-              </div>
             </div>
 
             <div class="rounded-3xl border border-base-200 bg-base-100/80 p-6">

@@ -50,6 +50,14 @@ def _get_owned_custom_voice(voice_id):
     )
 
 
+def _find_owned_custom_voice(voice_id):
+    return Voice.objects.filter(
+        owner=get_or_create_local_operator_user(),
+        source='custom',
+        pk=voice_id,
+    ).first()
+
+
 def _resolve_voice(raw_voice_id):
     value = str(raw_voice_id or '').strip()
     if not value:
@@ -162,10 +170,43 @@ def save_character_voice_view(request):
         except (TypeError, ValueError):
             return Response({'detail': '音色参数格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
 
-        voice = _get_owned_custom_voice(voice_id)
-        conflict = Voice.objects.filter(voice_code=payload['voice_code']).exclude(pk=voice.pk).first()
+        voice = _find_owned_custom_voice(voice_id)
+        if not voice:
+            voice, _ = Voice.objects.update_or_create(
+                owner=get_or_create_local_operator_user(),
+                voice_code=payload['voice_code'],
+                defaults={
+                    'name': payload['name'],
+                    'provider': 'aliyun',
+                    'source': 'custom',
+                    'model_name': payload['model_name'],
+                    'description': payload['description'],
+                    'language': 'zh-CN',
+                    'is_active': True,
+                },
+            )
+            return Response({
+                'voice': serialize_voice(voice),
+                'detail': '原来的音色记录已失效，已按当前草稿重新保存。',
+            }, status=status.HTTP_200_OK)
+
+        conflict = Voice.objects.filter(
+            owner=get_or_create_local_operator_user(),
+            source='custom',
+            voice_code=payload['voice_code'],
+        ).exclude(pk=voice.pk).first()
         if conflict:
-            return Response({'detail': '这个音色 ID 已存在，不能重复保存。'}, status=status.HTTP_400_BAD_REQUEST)
+            conflict.name = payload['name']
+            conflict.model_name = payload['model_name']
+            conflict.description = payload['description']
+            conflict.is_active = True
+            conflict.save()
+            Character.objects.filter(user=get_or_create_local_operator_user(), voice=voice).update(voice=conflict)
+            voice.delete()
+            return Response({
+                'voice': serialize_voice(conflict),
+                'detail': '已切换到已存在的自定义音色配置。',
+            }, status=status.HTTP_200_OK)
 
         voice.name = payload['name']
         voice.voice_code = payload['voice_code']

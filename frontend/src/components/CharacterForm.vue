@@ -55,8 +55,8 @@ let previewAudioUrl = ''
 
 const ELYSIA_AVATAR_ASSET = '/demo/elysia-avatar.png'
 const ELYSIA_BACKGROUND_ASSET = '/demo/elysia-background.webp'
-const ELYSIA_DEMO_VOICE_CODE = 'cosyvoice-v3.5-flash-bailian-99058280e3994e48ad0c44453d58f8e0'
-const ELYSIA_DEMO_VOICE_MODEL = 'cosyvoice-v3.5-flash'
+const ELYSIA_DEMO_VOICE_CODE = 'cosyvoice-v3.5-plus-bailian-871b21d0985945ad9282d136a6e1a08e'
+const ELYSIA_DEMO_VOICE_MODEL = 'cosyvoice-v3.5-plus'
 
 const selectedVoice = computed(() => props.voices.find((voice) => voice.id === selectedVoiceId.value) ?? null)
 const selectedCustomVoice = computed(() => (selectedVoice.value?.source === 'custom' ? selectedVoice.value : null))

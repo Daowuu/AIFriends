@@ -129,18 +129,6 @@ def _resolve_character_ai_config(payload, *, character=None):
             Character.PERSONA_BOUNDARY_CHOICES,
             'companion',
         ),
-        'tools_enabled': _normalize_bool(
-            payload.get('tools_enabled'),
-            default=getattr(reference, 'tools_enabled', False),
-        ),
-        'tools_require_confirmation': _normalize_bool(
-            payload.get('tools_require_confirmation'),
-            default=getattr(reference, 'tools_require_confirmation', True),
-        ),
-        'tools_read_only': _normalize_bool(
-            payload.get('tools_read_only'),
-            default=getattr(reference, 'tools_read_only', True),
-        ),
     }
 
 
@@ -298,9 +286,6 @@ def update_character_view(request, character_id):
     character.initiative_level = ai_config['initiative_level']
     character.memory_mode = ai_config['memory_mode']
     character.persona_boundary = ai_config['persona_boundary']
-    character.tools_enabled = ai_config['tools_enabled']
-    character.tools_require_confirmation = ai_config['tools_require_confirmation']
-    character.tools_read_only = ai_config['tools_read_only']
 
     if photo:
         replace_stored_file(character, 'photo', photo)

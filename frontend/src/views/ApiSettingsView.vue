@@ -29,13 +29,11 @@ const apiBase = ref('')
 const modelName = ref('')
 const apiKey = ref('')
 const hasExistingApiKey = ref(false)
-const clearApiKey = ref(false)
 const asrApiBase = ref('')
 const asrModelName = ref('')
 const ttsModelName = ref('')
 const asrApiKey = ref('')
 const hasExistingAsrApiKey = ref(false)
-const clearAsrApiKey = ref(false)
 const updatedAt = ref('')
 const providerOptions = ref<AIProviderOption[]>([])
 const runtimeSummary = ref<AIRuntimeSummary | null>(null)
@@ -55,13 +53,11 @@ const applySettings = (settings: AISettings) => {
   apiBase.value = settings.api_base
   modelName.value = settings.model_name
   hasExistingApiKey.value = settings.has_api_key
-  clearApiKey.value = false
   apiKey.value = ''
   asrApiBase.value = settings.asr_api_base
   asrModelName.value = settings.asr_model_name
   ttsModelName.value = settings.tts_model_name
   hasExistingAsrApiKey.value = settings.has_asr_api_key
-  clearAsrApiKey.value = false
   asrApiKey.value = ''
   updatedAt.value = settings.updated_at
 }
@@ -131,7 +127,6 @@ const handleSaveChatConfig = async () => {
       api_base: apiBase.value.trim(),
       model_name: modelName.value.trim(),
       api_key: apiKey.value.trim(),
-      clear_api_key: clearApiKey.value,
     })
 
     providerOptions.value = response.data.providers
@@ -165,7 +160,6 @@ const handleSaveAsrConfig = async () => {
       asr_model_name: asrModelName.value.trim(),
       tts_model_name: ttsModelName.value.trim(),
       asr_api_key: asrApiKey.value.trim(),
-      clear_asr_api_key: clearAsrApiKey.value,
     })
 
     providerOptions.value = response.data.providers
@@ -206,7 +200,6 @@ const handleTestConnection = async () => {
       api_base: apiBase.value.trim(),
       model_name: modelName.value.trim(),
       api_key: apiKey.value.trim(),
-      clear_api_key: clearApiKey.value,
     })
 
     const preview = response.data.reply_preview ? ` 返回示例：${response.data.reply_preview}` : ''
@@ -243,7 +236,6 @@ const handleTestAsrConnection = async () => {
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
       asr_api_key: asrApiKey.value.trim(),
-      clear_asr_api_key: clearAsrApiKey.value,
     })
 
     const preview = response.data.reply_preview ? ` 返回示例：${response.data.reply_preview}` : ''

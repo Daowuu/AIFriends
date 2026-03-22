@@ -9,7 +9,7 @@ import MarkdownContent from '@/components/MarkdownContent.vue'
 import CharacterCard from '@/components/character/CharacterCard.vue'
 import ApiSettingsView from '@/views/ApiSettingsView.vue'
 import type { Character, CharacterFormPayload, VoiceOption } from '@/types/character'
-import type { StudioChatDebug, StudioOverview, StudioRecentDebugSummary, StudioSessionMemorySummary } from '@/types/studio'
+import type { StudioOverview, StudioSessionMemorySummary } from '@/types/studio'
 import { useCharacterChatNavigation } from '@/utils/useCharacterChatNavigation'
 
 type CharacterFormStudioExpose = {
@@ -26,7 +26,6 @@ const overviewError = ref('')
 const characters = ref<Character[]>([])
 const voices = ref<VoiceOption[]>([])
 const runtimeSummary = ref<StudioOverview['runtime_summary'] | null>(null)
-const recentDebugSummary = ref<StudioRecentDebugSummary | null>(null)
 const sessionMemorySummaries = ref<StudioSessionMemorySummary[]>([])
 const selectedCharacterId = ref<number | null>(null)
 const hasDraftSlot = ref(false)
@@ -38,7 +37,6 @@ const testPrompt = ref('用你的角色语气做一个简短自我介绍。')
 const testReply = ref('')
 const testPending = ref(false)
 const testError = ref('')
-const testDebug = ref<StudioChatDebug | null>(null)
 const memoryActionPending = ref(false)
 const memoryActionMessage = ref('')
 const memoryActionError = ref('')
@@ -130,23 +128,6 @@ const handleCharacterDrop = async (targetCharacterId: number) => {
   overviewError.value = ''
   await persistCharacterOrder(previousCharacters)
 }
-
-const testDebugDisplay = computed(() => {
-  const debug = testDebug.value
-  if (!debug) return null
-  return {
-    promptLayers: debug.prompt_layers.join(' / '),
-    memoryMode: debug.memory_injection.mode,
-    usedSummary: debug.memory_injection.used_summary,
-    usedRelationshipMemory: debug.memory_injection.used_relationship_memory,
-    usedPreferenceMemory: debug.memory_injection.used_user_preference_memory,
-    memoryUpdateReason: debug.memory_update.reason,
-    cooldownActive: debug.memory_update.cooldown_active ?? false,
-    runtimeSource: debug.runtime_source,
-    fallbackUsed: debug.fallback_used,
-    errorTag: debug.error_tag || '',
-  }
-})
 
 const currentSessionMemorySummary = computed(() => {
   if (!currentCharacter.value?.id) return null
@@ -285,7 +266,6 @@ const loadStudioOverview = async (preferredCharacterId?: number | null) => {
     characters.value = response.data.characters
     voices.value = response.data.voices
     runtimeSummary.value = response.data.runtime_summary
-    recentDebugSummary.value = response.data.recent_debug_summary
     sessionMemorySummaries.value = response.data.session_memory_summaries
 
     const nextSelectedId = preferredCharacterId ?? selectedCharacterId.value
@@ -385,7 +365,6 @@ const startCreateMode = () => {
   workspacePanel.value = 'configure'
   testReply.value = ''
   testError.value = ''
-  testDebug.value = null
 }
 
 const selectCharacter = (character: Character) => {
@@ -393,7 +372,6 @@ const selectCharacter = (character: Character) => {
   workspacePanel.value = 'configure'
   testReply.value = ''
   testError.value = ''
-  testDebug.value = null
 }
 
 const runTrialChat = async () => {
@@ -411,11 +389,8 @@ const runTrialChat = async () => {
   testPending.value = true
   testReply.value = ''
   testError.value = ''
-  testDebug.value = null
 
   try {
-    let debugResult: StudioChatDebug | null = null
-
     await streamApi({
       url: '/session/chat/',
       body: {
@@ -428,10 +403,6 @@ const runTrialChat = async () => {
           return
         }
         if (json.content) testReply.value += json.content
-        if (json.meta?.debug) {
-          debugResult = json.meta.debug as StudioChatDebug
-          testDebug.value = debugResult
-        }
         if (done) testPending.value = false
       },
       onerror(error) {
@@ -440,31 +411,6 @@ const runTrialChat = async () => {
       },
     })
 
-    const latestDebug = debugResult as StudioChatDebug | null
-
-    if (currentCharacter.value) {
-      recentDebugSummary.value = {
-        session_id: recentDebugSummary.value?.session_id || 0,
-        character_id: currentCharacter.value.id,
-        character_name: currentCharacter.value.name,
-        memory_mode: currentCharacter.value.ai_config.memory_mode,
-        voice_name: currentCharacter.value.voice?.name || '',
-        last_message_at: new Date().toISOString(),
-        memory_updated_at: recentDebugSummary.value?.memory_updated_at || '',
-        last_debug_at: new Date().toISOString(),
-        has_summary: latestDebug?.memory_injection.used_summary ?? false,
-        has_preference_memory: latestDebug?.memory_injection.used_user_preference_memory ?? false,
-        prompt_layers: latestDebug?.prompt_layers || [],
-        runtime_source: latestDebug?.runtime_source || '',
-        fallback_used: latestDebug?.fallback_used ?? false,
-        error_tag: latestDebug?.error_tag || '',
-        memory_update_reason: latestDebug?.memory_update.reason || '',
-        memory_update_triggered: latestDebug?.memory_update.triggered ?? false,
-        used_summary: latestDebug?.memory_injection.used_summary ?? false,
-        used_relationship_memory: latestDebug?.memory_injection.used_relationship_memory ?? false,
-        used_user_preference_memory: latestDebug?.memory_injection.used_user_preference_memory ?? false,
-      }
-    }
     await loadStudioOverview(currentCharacter.value.id)
   } catch (error: unknown) {
     testError.value = error instanceof Error ? error.message : '试聊失败。'
@@ -489,7 +435,6 @@ const handleStudioMemoryReset = async () => {
     })
     memoryActionMessage.value = response.data.detail
     testReply.value = ''
-    testDebug.value = null
     await loadStudioOverview(currentCharacter.value.id)
   } catch (error: unknown) {
     memoryActionError.value = '清空长期记忆失败。'

@@ -189,19 +189,11 @@ def serialize_runtime_config(runtime_config, *, fallback_label='未启用'):
     }
 
 
-def is_dashscope_compatible_api_base(api_base: str):
-    normalized = str(api_base or '').strip().lower()
-    return any(marker in normalized for marker in (
-        'dashscope.aliyuncs.com',
-        'dashscope-intl.aliyuncs.com',
-    ))
-
 def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
     provider = str(payload.get('provider', settings.provider)).strip() or settings.provider
     provider_config = get_provider_config(provider)
-    clear_api_key = str(payload.get('clear_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
     raw_api_key = str(payload.get('api_key', '')).strip()
-    api_key = '' if clear_api_key else (raw_api_key or settings.api_key.strip())
+    api_key = raw_api_key or settings.api_key.strip()
     api_base = str(payload.get('api_base', settings.api_base)).strip() or provider_config['default_api_base']
     model_name = str(payload.get('model_name', settings.model_name)).strip() or provider_config['default_model_name']
 
@@ -213,14 +205,12 @@ def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
         'api_key': api_key,
         'api_base': api_base,
         'model_name': model_name,
-        'clear_api_key': clear_api_key,
     }
 
 
 def resolve_user_asr_settings_payload(settings: RuntimeEnvSettings, payload):
-    clear_asr_api_key = str(payload.get('clear_asr_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
     raw_api_key = str(payload.get('asr_api_key', '')).strip()
-    asr_api_key = '' if clear_asr_api_key else (raw_api_key or settings.asr_api_key.strip())
+    asr_api_key = raw_api_key or settings.asr_api_key.strip()
     asr_api_base = str(payload.get('asr_api_base', settings.asr_api_base)).strip() or ASR_DEFAULT_API_BASE
     asr_model_name = str(payload.get('asr_model_name', settings.asr_model_name)).strip() or ASR_DEFAULT_MODEL_NAME
     tts_model_name = str(payload.get('tts_model_name', settings.tts_model_name)).strip() or 'cosyvoice-v3.5-plus'
@@ -232,7 +222,6 @@ def resolve_user_asr_settings_payload(settings: RuntimeEnvSettings, payload):
         'asr_api_base': asr_api_base,
         'asr_model_name': asr_model_name,
         'tts_model_name': tts_model_name,
-        'clear_asr_api_key': clear_asr_api_key,
     }
 
 

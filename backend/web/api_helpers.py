@@ -34,9 +34,6 @@ def serialize_character_ai_config(character: Character):
         'initiative_level': character.initiative_level,
         'memory_mode': character.memory_mode,
         'persona_boundary': character.persona_boundary,
-        'tools_enabled': character.tools_enabled,
-        'tools_require_confirmation': character.tools_require_confirmation,
-        'tools_read_only': character.tools_read_only,
     }
 
 

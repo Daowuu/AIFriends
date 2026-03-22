@@ -1,5 +1,3 @@
-from typing import Optional
-
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -25,38 +23,6 @@ def _serialize_session_memory_summary(session: Friend):
     }
 
 
-def _serialize_recent_debug_summary(session: Optional[Friend]):
-    if not session:
-        return None
-
-    latest_message = session.messages.order_by('-created_at').first()
-    character = session.character
-    snapshot = session.last_debug_snapshot or {}
-    memory_injection = snapshot.get('memory_injection') or {}
-    memory_update = snapshot.get('memory_update') or {}
-    return {
-        'session_id': session.id,
-        'character_id': character.id,
-        'character_name': character.name,
-        'memory_mode': character.memory_mode,
-        'voice_name': character.voice.name if character.voice else '',
-        'last_message_at': latest_message.created_at.isoformat() if latest_message else '',
-        'memory_updated_at': session.memory_updated_at.isoformat() if session.memory_updated_at else '',
-        'last_debug_at': session.last_debug_at.isoformat() if session.last_debug_at else '',
-        'has_summary': bool(session.conversation_summary.strip()),
-        'has_preference_memory': bool(session.user_preference_memory.strip()),
-        'prompt_layers': snapshot.get('prompt_layers', []),
-        'runtime_source': snapshot.get('runtime_source', ''),
-        'fallback_used': bool(snapshot.get('fallback_used', False)),
-        'error_tag': snapshot.get('error_tag', ''),
-        'memory_update_reason': memory_update.get('reason', ''),
-        'memory_update_triggered': bool(memory_update.get('triggered', False)),
-        'used_summary': bool(memory_injection.get('used_summary', False)),
-        'used_relationship_memory': bool(memory_injection.get('used_relationship_memory', False)),
-        'used_user_preference_memory': bool(memory_injection.get('used_user_preference_memory', False)),
-    }
-
-
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def studio_overview_view(request):
@@ -66,10 +32,6 @@ def studio_overview_view(request):
     voices = Voice.objects.filter(is_active=True).filter(
         Q(source='system') | Q(owner=local_user),
     ).order_by('source', 'name', 'id')
-    recent_session = Friend.objects.filter(user=local_user).select_related(
-        'character',
-        'character__voice',
-    ).order_by('-last_debug_at', '-memory_updated_at', '-created_at', '-id').first()
     session_memory_summaries = [
         _serialize_session_memory_summary(session)
         for session in Friend.objects.filter(user=local_user).select_related('character').order_by('-memory_updated_at', '-created_at', '-id')
@@ -79,6 +41,5 @@ def studio_overview_view(request):
         'characters': serialize_character_list(characters),
         'voices': [serialize_voice(voice) for voice in voices],
         'runtime_summary': get_runtime_summary(),
-        'recent_debug_summary': _serialize_recent_debug_summary(recent_session),
         'session_memory_summaries': session_memory_summaries,
     }, status=status.HTTP_200_OK)

@@ -16,65 +16,36 @@ The product surface is intentionally small:
 
 ## Quick Start
 
-### 1. Clone
+Recommended:
+
+- Python `3.12+`
+- Node `20+`
+
+### 1. Clone and install dependencies
 
 ```bash
 git clone https://github.com/Daowuu/AIFriends.git
 cd AIFriends
-```
 
-### 2. Start the backend
-
-Recommended Python: `3.12+`
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -r requirements.txt
+
 cp backend/.env.example backend/.env
-python3 backend/manage.py migrate
-python3 backend/manage.py runserver
-```
 
-Backend default:
-
-- `http://127.0.0.1:8000`
-
-### 3. Start the frontend
-
-Recommended Node: `20+`
-
-```bash
 cd frontend
 npm install
-npm run dev -- --host 127.0.0.1
+cd ..
 ```
 
-Frontend default:
+### 2. Configure the backend env
 
-- `http://127.0.0.1:5173`
-
-### 4. Start both together
-
-From the repo root:
-
-```bash
-npm install
-npm run dev
-```
-
-## Minimal Config
-
-First copy the backend env file:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Then edit:
+Edit:
 
 - [backend/.env](/Users/apple/project/AIFrients/backend/.env)
+
+## Minimal Config
 
 Most important variables:
 
@@ -97,6 +68,34 @@ DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
 
 After updating `backend/.env`, restart Django.
+
+### 3. Run the project
+
+Terminal 1:
+
+```bash
+source .venv/bin/activate
+python3 backend/manage.py migrate
+python3 backend/manage.py runserver
+```
+
+Terminal 2:
+
+```bash
+cd frontend
+npm run dev -- --host 127.0.0.1
+```
+
+Default URLs:
+
+- Backend: `http://127.0.0.1:8000`
+- Frontend: `http://127.0.0.1:5173`
+
+Optional from the repo root:
+
+```bash
+npm run dev
+```
 
 ## Main Commands
 

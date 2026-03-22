@@ -16,65 +16,36 @@ AIFriends 是一个单实例的角色 AI 聊天项目，核心关注三件事：
 
 ## 快速开始
 
-### 1. 克隆仓库
+建议环境：
+
+- Python `3.12+`
+- Node `20+`
+
+### 1. 克隆并安装依赖
 
 ```bash
 git clone https://github.com/Daowuu/AIFriends.git
 cd AIFriends
-```
 
-### 2. 启动后端
-
-建议 Python：`3.12+`
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -r requirements.txt
+
 cp backend/.env.example backend/.env
-python3 backend/manage.py migrate
-python3 backend/manage.py runserver
-```
 
-后端默认地址：
-
-- `http://127.0.0.1:8000`
-
-### 3. 启动前端
-
-建议 Node：`20+`
-
-```bash
 cd frontend
 npm install
-npm run dev -- --host 127.0.0.1
+cd ..
 ```
 
-前端默认地址：
+### 2. 配置后端 env
 
-- `http://127.0.0.1:5173`
-
-### 4. 一起启动
-
-在仓库根目录执行：
-
-```bash
-npm install
-npm run dev
-```
-
-## 最小配置
-
-先复制后端 env 文件：
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-然后编辑：
+编辑：
 
 - [backend/.env](/Users/apple/project/AIFrients/backend/.env)
+
+## 最小配置
 
 最重要的变量：
 
@@ -97,6 +68,34 @@ DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
 
 修改完 `backend/.env` 后，重启 Django。
+
+### 3. 运行项目
+
+终端 1：
+
+```bash
+source .venv/bin/activate
+python3 backend/manage.py migrate
+python3 backend/manage.py runserver
+```
+
+终端 2：
+
+```bash
+cd frontend
+npm run dev -- --host 127.0.0.1
+```
+
+默认地址：
+
+- 后端：`http://127.0.0.1:8000`
+- 前端：`http://127.0.0.1:5173`
+
+如果你已经在仓库根目录装好了前端依赖，也可以直接：
+
+```bash
+npm run dev
+```
 
 ## 常用命令
 

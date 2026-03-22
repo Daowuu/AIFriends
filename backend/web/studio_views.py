@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from web.ai_settings_service import get_runtime_summary
 from web.api_helpers import serialize_character_list, serialize_voice
-from web.local_runtime import get_or_create_local_operator_user
+from web.local_runtime import ensure_demo_voice_configs, get_or_create_local_operator_user
 from web.models import Character, Friend, Voice
 
 
@@ -48,6 +48,7 @@ def _serialize_recent_debug_summary(session: Optional[Friend]):
 @permission_classes([AllowAny])
 def studio_overview_view(request):
     local_user = get_or_create_local_operator_user()
+    ensure_demo_voice_configs()
     characters = Character.objects.filter(user=local_user).select_related('voice')
     voices = Voice.objects.filter(is_active=True).filter(
         Q(source='system') | Q(owner=local_user),

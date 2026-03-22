@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from web.api_helpers import serialize_character, serialize_character_list, serialize_voice
-from web.local_runtime import get_or_create_local_operator_user
+from web.local_runtime import ensure_demo_voice_configs, get_or_create_local_operator_user
 from web.media_utils import remove_stored_file, replace_stored_file
 from web.models import Character, Voice
 
@@ -36,6 +36,7 @@ def _valid_choice(value, choices, default):
 
 
 def _get_available_voices():
+    ensure_demo_voice_configs()
     local_user = get_or_create_local_operator_user()
     return Voice.objects.filter(is_active=True).filter(
         Q(source='system') | Q(owner=local_user),

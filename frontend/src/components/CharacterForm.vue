@@ -55,6 +55,8 @@ let previewAudioUrl = ''
 
 const ELYSIA_AVATAR_ASSET = '/demo/elysia-avatar.png'
 const ELYSIA_BACKGROUND_ASSET = '/demo/elysia-background.webp'
+const ELYSIA_DEMO_VOICE_CODE = 'cosyvoice-v3.5-flash-bailian-99058280e3994e48ad0c44453d58f8e0'
+const ELYSIA_DEMO_VOICE_MODEL = 'cosyvoice-v3.5-flash'
 
 const selectedVoice = computed(() => props.voices.find((voice) => voice.id === selectedVoiceId.value) ?? null)
 const selectedCustomVoice = computed(() => (selectedVoice.value?.source === 'custom' ? selectedVoice.value : null))
@@ -206,15 +208,15 @@ const applyElysiaExample = async () => {
   memoryMode.value = 'enhanced'
   personaBoundary.value = 'companion'
 
-  const matchedVoice = props.voices.find((voice) => voice.name.includes('爱莉希雅'))
+  const matchedVoice = props.voices.find((voice) => voice.voice_code === ELYSIA_DEMO_VOICE_CODE)
   if (matchedVoice) {
     selectedVoiceId.value = matchedVoice.id
   } else {
     selectedVoiceId.value = null
     customVoiceName.value = '爱莉希雅'
-    customVoiceCode.value = ''
-    customVoiceModelName.value = 'cosyvoice-v3.5-plus'
-    customVoiceDescription.value = '这里填入爱莉希雅对应的 voice_id，或先选择一个接近的系统音色做示例。'
+    customVoiceCode.value = ELYSIA_DEMO_VOICE_CODE
+    customVoiceModelName.value = ELYSIA_DEMO_VOICE_MODEL
+    customVoiceDescription.value = '内置示例音色。保存角色前如需调整，可改成你自己的 voice_id。'
   }
 
   photoPreview.value = ELYSIA_AVATAR_ASSET

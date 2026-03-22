@@ -18,11 +18,11 @@ AIFriends 当前把 AI 能力集中在：
 
 项目的产品主线是：
 
-`角色列表 -> Studio 配置与试聊 -> 正式聊天`
+`角色列表 -> Studio 配置与试聊 -> 正式聊天 / 狼人杀原型`
 
-## 2. 五层结构
+## 2. 六层结构
 
-当前 AI 工程按 5 层理解最清晰：
+当前 AI 工程按 6 层理解最清晰：
 
 1. `runtime`
    负责解析 chat / ASR / TTS 当前实际使用的配置来源。
@@ -34,6 +34,8 @@ AIFriends 当前把 AI 能力集中在：
    负责 prompt layers、runtime source、记忆注入和错误标签。
 5. `persona`
    负责角色设定、`custom_prompt`、AI 行为配置和音色。
+6. `werewolf prototype`
+   负责多角色房间、系统主持、阶段推进与回放。
 
 ## 3. 建议阅读顺序
 

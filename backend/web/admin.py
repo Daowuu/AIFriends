@@ -1,6 +1,18 @@
 from django.contrib import admin
 
-from web.models import Character, Friend, Message, SystemPrompt, UserAISettings, UserProfile, Voice
+from web.models import (
+    Character,
+    Friend,
+    Message,
+    SystemPrompt,
+    UserAISettings,
+    UserProfile,
+    Voice,
+    WerewolfEvent,
+    WerewolfGame,
+    WerewolfSeat,
+    WerewolfSpeech,
+)
 
 
 @admin.register(UserProfile)
@@ -44,3 +56,31 @@ class SystemPromptAdmin(admin.ModelAdmin):
 class UserAISettingsAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'provider', 'enabled', 'updated_at')
     search_fields = ('user__username', 'provider', 'model_name', 'api_base')
+
+
+@admin.register(WerewolfGame)
+class WerewolfGameAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'status', 'phase', 'winner', 'updated_at')
+    search_fields = ('title',)
+    list_filter = ('status', 'phase', 'winner')
+
+
+@admin.register(WerewolfSeat)
+class WerewolfSeatAdmin(admin.ModelAdmin):
+    list_display = ('id', 'game', 'seat_order', 'display_name', 'identity', 'is_alive', 'source_type')
+    search_fields = ('display_name', 'game__title')
+    list_filter = ('identity', 'is_alive', 'source_type')
+
+
+@admin.register(WerewolfEvent)
+class WerewolfEventAdmin(admin.ModelAdmin):
+    list_display = ('id', 'game', 'event_type', 'phase', 'created_at')
+    search_fields = ('game__title', 'title', 'content')
+    list_filter = ('event_type', 'phase')
+
+
+@admin.register(WerewolfSpeech)
+class WerewolfSpeechAdmin(admin.ModelAdmin):
+    list_display = ('id', 'game', 'seat', 'phase', 'audience', 'created_at')
+    search_fields = ('game__title', 'seat__display_name', 'content')
+    list_filter = ('phase', 'audience')

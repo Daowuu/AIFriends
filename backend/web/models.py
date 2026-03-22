@@ -116,6 +116,138 @@ class Message(models.Model):
         return f'{self.friend_id}:{self.role}:{self.id}'
 
 
+class WerewolfGame(models.Model):
+    STATUS_CHOICES = (
+        ('waiting', 'waiting'),
+        ('active', 'active'),
+        ('finished', 'finished'),
+    )
+    PHASE_CHOICES = (
+        ('setup', 'setup'),
+        ('night', 'night'),
+        ('day_speeches', 'day_speeches'),
+        ('vote', 'vote'),
+        ('finished', 'finished'),
+    )
+    WINNER_CHOICES = (
+        ('', ''),
+        ('villagers', 'villagers'),
+        ('wolves', 'wolves'),
+    )
+
+    title = models.CharField(max_length=128)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='waiting')
+    phase = models.CharField(max_length=24, choices=PHASE_CHOICES, default='setup')
+    day_number = models.PositiveIntegerField(default=0)
+    night_number = models.PositiveIntegerField(default=0)
+    winner = models.CharField(max_length=16, choices=WINNER_CHOICES, blank=True, default='')
+    observer_note = models.TextField(blank=True, default='')
+    state = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+
+    def __str__(self):
+        return self.title
+
+
+class WerewolfSeat(models.Model):
+    SOURCE_CHOICES = (
+        ('character', 'character'),
+        ('custom', 'custom'),
+    )
+    IDENTITY_CHOICES = (
+        ('wolf', 'wolf'),
+        ('seer', 'seer'),
+        ('villager', 'villager'),
+    )
+
+    game = models.ForeignKey(WerewolfGame, on_delete=models.CASCADE, related_name='seats')
+    character = models.ForeignKey(Character, on_delete=models.SET_NULL, related_name='werewolf_seats', blank=True, null=True)
+    source_type = models.CharField(max_length=16, choices=SOURCE_CHOICES, default='character')
+    seat_order = models.PositiveIntegerField(default=0)
+    display_name = models.CharField(max_length=64)
+    profile = models.TextField(blank=True, default='')
+    custom_prompt = models.TextField(blank=True, default='')
+    voice = models.ForeignKey('Voice', on_delete=models.SET_NULL, related_name='werewolf_seats', blank=True, null=True)
+    photo = models.FileField(upload_to='werewolf/seats/photos/', blank=True, null=True)
+    background_image = models.FileField(upload_to='werewolf/seats/backgrounds/', blank=True, null=True)
+    reply_style = models.CharField(max_length=32, choices=Character.REPLY_STYLE_CHOICES, default='natural')
+    reply_length = models.CharField(max_length=32, choices=Character.REPLY_LENGTH_CHOICES, default='balanced')
+    initiative_level = models.CharField(max_length=32, choices=Character.INITIATIVE_LEVEL_CHOICES, default='balanced')
+    memory_mode = models.CharField(max_length=32, choices=Character.MEMORY_MODE_CHOICES, default='off')
+    persona_boundary = models.CharField(max_length=32, choices=Character.PERSONA_BOUNDARY_CHOICES, default='grounded')
+    identity = models.CharField(max_length=16, choices=IDENTITY_CHOICES, blank=True, default='')
+    is_alive = models.BooleanField(default=True)
+    is_revealed = models.BooleanField(default=False)
+    metadata = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['seat_order', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['game', 'seat_order'], name='unique_werewolf_seat_order'),
+        ]
+
+    def __str__(self):
+        return f'{self.game_id}:{self.seat_order}:{self.display_name}'
+
+
+class WerewolfEvent(models.Model):
+    EVENT_TYPE_CHOICES = (
+        ('game_created', 'game_created'),
+        ('note', 'note'),
+        ('night_result', 'night_result'),
+        ('day_started', 'day_started'),
+        ('day_speeches_completed', 'day_speeches_completed'),
+        ('vote_result', 'vote_result'),
+        ('game_finished', 'game_finished'),
+        ('game_reset', 'game_reset'),
+    )
+
+    game = models.ForeignKey(WerewolfGame, on_delete=models.CASCADE, related_name='events')
+    event_type = models.CharField(max_length=32, choices=EVENT_TYPE_CHOICES)
+    phase = models.CharField(max_length=24, blank=True, default='')
+    day_number = models.PositiveIntegerField(default=0)
+    night_number = models.PositiveIntegerField(default=0)
+    title = models.CharField(max_length=128)
+    content = models.TextField(blank=True, default='')
+    payload = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'{self.game_id}:{self.event_type}:{self.id}'
+
+
+class WerewolfSpeech(models.Model):
+    AUDIENCE_CHOICES = (
+        ('public', 'public'),
+        ('wolves', 'wolves'),
+        ('private', 'private'),
+    )
+
+    game = models.ForeignKey(WerewolfGame, on_delete=models.CASCADE, related_name='speeches')
+    seat = models.ForeignKey(WerewolfSeat, on_delete=models.CASCADE, related_name='speeches')
+    phase = models.CharField(max_length=24)
+    day_number = models.PositiveIntegerField(default=0)
+    night_number = models.PositiveIntegerField(default=0)
+    audience = models.CharField(max_length=16, choices=AUDIENCE_CHOICES, default='public')
+    content = models.TextField()
+    metadata = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'{self.game_id}:{self.seat_id}:{self.phase}:{self.id}'
+
+
 class SystemPrompt(models.Model):
     key = models.CharField(max_length=64, unique=True)
     title = models.CharField(max_length=128, blank=True, default='')

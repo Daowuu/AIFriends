@@ -2,17 +2,19 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AIFriends 是一个单实例的角色 AI 聊天项目，核心关注三件事：
+AIFriends 是一个单实例的角色 AI 聊天项目，核心关注四件事：
 
 - 角色一致性
 - 持久会话记忆
 - 文字与语音共用同一套角色逻辑
+- 轻量的多角色实验能力
 
-产品主线只保留三页：
+产品主线现在保留四页：
 
 - `/` 角色列表
 - `/chat/:characterId` 聊天页
 - `/studio` 角色与运行时工作台
+- `/werewolf` 狼人杀原型页
 
 ## 快速开始
 
@@ -116,6 +118,7 @@ cd frontend && npm run build-only
 5. 在同一处调整 chat / ASR / TTS 运行时
 6. 先试聊、试听
 7. 再进入 `/chat/:characterId` 做正式对话
+8. 如果想做多角色实验，可以进入 `/werewolf` 创建一局基础狼人杀
 
 ## 如何使用示例角色
 

@@ -2,17 +2,19 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AIFriends is a single-instance AI character chat project. It focuses on three things:
+AIFriends is a single-instance AI character chat project. It focuses on four things:
 
 - character consistency
 - persistent session memory
 - text / voice sharing one character logic
+- lightweight multi-character role experiments
 
 The product surface is intentionally small:
 
 - `/` character list
 - `/chat/:characterId` conversation page
 - `/studio` character + runtime workspace
+- `/werewolf` werewolf prototype room
 
 ## Quick Start
 
@@ -116,6 +118,7 @@ cd frontend && npm run build-only
 5. Adjust chat / ASR / TTS runtime in the same Studio
 6. Trial chat and voice preview
 7. Enter `/chat/:characterId` for the formal conversation
+8. If you want a multi-character prototype, enter `/werewolf` to create a basic 5-player room
 
 ## Using the Sample Role
 

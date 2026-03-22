@@ -499,6 +499,12 @@ onMounted(() => {
         </div>
 
         <div class="flex flex-wrap gap-3">
+          <RouterLink
+            to="/werewolf"
+            class="btn rounded-full border-[#d6ccb8] bg-white/80 text-[#15231f] hover:bg-[#fff7e8]"
+          >
+            狼人杀实验场
+          </RouterLink>
           <button class="btn rounded-full border-[#d6ccb8] bg-white/80 text-[#15231f] hover:bg-[#fff7e8]" @click="studioTab = 'workflow'">
             角色工作流
           </button>

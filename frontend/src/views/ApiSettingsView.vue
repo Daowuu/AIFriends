@@ -25,6 +25,7 @@ const testAsrMessage = ref('')
 const testAsrErrorMessage = ref('')
 
 const provider = ref<AIProviderOption['value']>('aliyun')
+const lastProvider = ref<AIProviderOption['value']>('aliyun')
 const apiBase = ref('')
 const modelName = ref('')
 const apiKey = ref('')
@@ -50,6 +51,7 @@ const resolvedTtsModelPreview = computed(() => ttsModelName.value.trim() || 'cos
 
 const applySettings = (settings: AISettings) => {
   provider.value = settings.provider
+  lastProvider.value = settings.provider
   apiBase.value = settings.api_base
   modelName.value = settings.model_name
   hasExistingApiKey.value = settings.has_api_key
@@ -109,6 +111,23 @@ const resetAsrFeedback = () => {
 }
 
 const handleProviderChange = () => {
+  const previousProvider = providerOptions.value.find((item) => item.value === lastProvider.value)
+  const nextProvider = providerOptions.value.find((item) => item.value === provider.value)
+
+  if (nextProvider) {
+    const previousDefaultApiBase = previousProvider?.default_api_base || ''
+    const previousDefaultModelName = previousProvider?.default_model_name || ''
+
+    if (!apiBase.value.trim() || apiBase.value.trim() === previousDefaultApiBase) {
+      apiBase.value = nextProvider.default_api_base || ''
+    }
+
+    if (!modelName.value.trim() || modelName.value.trim() === previousDefaultModelName) {
+      modelName.value = nextProvider.default_model_name || ''
+    }
+  }
+
+  lastProvider.value = provider.value
   resetChatFeedback()
   resetAsrFeedback()
 }

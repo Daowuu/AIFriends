@@ -14,11 +14,12 @@
 
 AIFriends 现在是一个单实例角色 AI 项目。
 
-产品主线只有三页：
+产品主线现在有四页：
 
 - `/` 角色列表
 - `/chat/:characterId` 正式聊天
 - `/studio` 角色与运行时工作台
+- `/werewolf` 多角色狼人杀原型页
 
 这意味着当前 AI 系统的默认假设是：
 
@@ -26,12 +27,13 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - 每个角色对应一段持久会话
 - Studio 负责配置与实验
 - 聊天页负责终端对话
+- 狼人杀页负责多角色房间实验
 
 ---
 
-## 2. 五层职责
+## 2. 六层职责
 
-当前 AI 工程按 5 层拆开最清晰：
+当前 AI 工程按 6 层拆开最清晰：
 
 ### 2.1 runtime
 
@@ -77,6 +79,16 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - [backend/web/models.py](/Users/apple/project/AIFrients/backend/web/models.py)
 - [backend/web/character_views.py](/Users/apple/project/AIFrients/backend/web/character_views.py)
 - [frontend/src/components/CharacterForm.vue](/Users/apple/project/AIFrients/frontend/src/components/CharacterForm.vue)
+
+### 2.6 werewolf prototype
+
+负责多角色房间、阶段推进、公共/私有视角分离和系统主持。
+
+代码入口：
+
+- [backend/web/werewolf_services.py](/Users/apple/project/AIFrients/backend/web/werewolf_services.py)
+- [backend/web/werewolf_views.py](/Users/apple/project/AIFrients/backend/web/werewolf_views.py)
+- [frontend/src/views/WerewolfView.vue](/Users/apple/project/AIFrients/frontend/src/views/WerewolfView.vue)
 
 ---
 
@@ -184,6 +196,21 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 - 角色编辑页音色选择
 - 试听接口
 - 正式聊天页语音播报
+
+### 3.6 WerewolfGame / WerewolfSeat / WerewolfEvent / WerewolfSpeech
+
+狼人杀原型使用独立房间模型，不复用单角色会话。
+
+关键作用：
+
+- `WerewolfGame`
+  记录房间状态、当前阶段、轮次与胜负结果。
+- `WerewolfSeat`
+  保存席位顺序、角色快照、真实身份与存活状态。
+- `WerewolfEvent`
+  保存主持人事件流，例如夜晚结果、白天开始、投票结果和结算。
+- `WerewolfSpeech`
+  保存每个席位在不同阶段的发言内容，用于回放和恢复。
 
 ---
 

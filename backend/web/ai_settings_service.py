@@ -190,12 +190,23 @@ def serialize_runtime_config(runtime_config, *, fallback_label='未启用'):
 
 
 def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
-    provider = str(payload.get('provider', settings.provider)).strip() or settings.provider
+    previous_provider = settings.provider or 'aliyun'
+    previous_provider_config = get_provider_config(previous_provider)
+    provider = str(payload.get('provider', previous_provider)).strip() or previous_provider
     provider_config = get_provider_config(provider)
     raw_api_key = str(payload.get('api_key', '')).strip()
     api_key = raw_api_key or settings.api_key.strip()
-    api_base = str(payload.get('api_base', settings.api_base)).strip() or provider_config['default_api_base']
-    model_name = str(payload.get('model_name', settings.model_name)).strip() or provider_config['default_model_name']
+    submitted_api_base = str(payload.get('api_base', settings.api_base)).strip()
+    submitted_model_name = str(payload.get('model_name', settings.model_name)).strip()
+
+    if provider != previous_provider:
+        if not submitted_api_base or submitted_api_base == (settings.api_base.strip() or previous_provider_config['default_api_base']):
+            submitted_api_base = provider_config['default_api_base']
+        if not submitted_model_name or submitted_model_name == (settings.model_name.strip() or previous_provider_config['default_model_name']):
+            submitted_model_name = provider_config['default_model_name']
+
+    api_base = submitted_api_base or provider_config['default_api_base']
+    model_name = submitted_model_name or provider_config['default_model_name']
 
     enabled = bool(api_key)
 

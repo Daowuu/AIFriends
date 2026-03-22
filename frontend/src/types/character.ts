@@ -1,11 +1,3 @@
-export type CharacterAuthor = {
-  id: number
-  username: string
-  display_name: string
-  bio: string
-  avatar: string
-}
-
 export type VoiceOption = {
   id: number
   name: string
@@ -17,7 +9,6 @@ export type VoiceOption = {
   language: string
   sample_audio: string
   is_active: boolean
-  is_owner: boolean
   character_count: number
 }
 
@@ -43,10 +34,7 @@ export type Character = {
   background_image: string
   created_at: string
   updated_at: string
-  author: CharacterAuthor
   ai_config: CharacterAIConfig
-  is_owner: boolean
-  friend_id: number | null
 }
 
 export type CharacterFormPayload = {

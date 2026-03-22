@@ -2,7 +2,7 @@ import type { AIRuntimeSummary } from '@/types/ai-settings'
 import type { Character, VoiceOption } from '@/types/character'
 
 export type StudioRecentDebugSummary = {
-  friend_id: number
+  session_id: number
   character_id: number
   character_name: string
   memory_mode: string

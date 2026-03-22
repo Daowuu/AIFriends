@@ -2,33 +2,17 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AIFriends 是一个以角色为核心的 AI 聊天项目，当前围绕三项能力持续迭代：
+AIFriends 是一个单实例的角色 AI 聊天项目，核心关注三件事：
 
 - 角色一致性
-- 长期关系记忆
-- 语音一致性的互动
+- 持久会话记忆
+- 文字与语音共用同一套角色逻辑
 
-它面向“创作者可控的角色聊天”。
+产品主线只保留三页：
 
-## 你可以做什么
-
-- 在 `AI Studio` 中创建和调试角色
-- 配置公开人设、`custom_prompt`、对话风格、记忆模式和音色
-- 在进入正式聊天页前先试聊、试听
-- 用同一套角色逻辑承接文字聊天、语音输入和语音播报
-- 未登录时可以直接进行简单试玩
-- 查看 chat / ASR / TTS 的运行时诊断
-
-## 主要路由
-
-- `/` 公开内容流
-- `/chat/:characterId` 正式聊天页
-- `/studio` AI Studio
-- `/friends` 好友 / 关系页
-- `/profile` 个人资料页
-- `/settings/api` 用户级 runtime 设置页
-
-`/workspace` 会跳到 `/studio`。
+- `/` 角色列表
+- `/chat/:characterId` 聊天页
+- `/studio` 角色与运行时工作台
 
 ## 快速开始
 
@@ -71,7 +55,7 @@ npm run dev -- --host 127.0.0.1
 
 - `http://127.0.0.1:5173`
 
-### 4. 一键启动
+### 4. 一起启动
 
 在仓库根目录执行：
 
@@ -82,11 +66,7 @@ npm run dev
 
 ## 最小配置
 
-服务端默认配置集中在：
-
-- [backend/.env.example](backend/.env.example)
-
-先复制一份本地配置文件：
+先复制后端 env 文件：
 
 ```bash
 cp backend/.env.example backend/.env
@@ -94,7 +74,7 @@ cp backend/.env.example backend/.env
 
 然后编辑：
 
-- [backend/.env](backend/.env)
+- [backend/.env](/Users/apple/project/AIFrients/backend/.env)
 
 最重要的变量：
 
@@ -104,59 +84,50 @@ API_KEY=""
 API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 CHAT_MODEL="qwen-plus"
 CHAT_SUPPORTS_DASHSCOPE_AUDIO="true"
+
 ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"
 TTS_MODEL="cosyvoice-v3.5-plus"
-DEMO_TEXT_CHAT_LIMIT="20"
-DEMO_VOICE_CHAT_LIMIT="5"
+
 DJANGO_SECRET_KEY=""
 DJANGO_DEBUG="true"
 DJANGO_ALLOWED_HOSTS="127.0.0.1,localhost,testserver"
 DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
 
-修改完 `backend/.env` 后，重启 Django 服务。
-
-runtime 解析顺序：
-
-- 用户配置完整：优先使用用户配置
-- 用户配置损坏：返回 `invalid`
-- 未启用用户配置：尝试服务端默认配置
-- 系统里没有可用 runtime：返回 `missing`
+修改完 `backend/.env` 后，重启 Django。
 
 ## 常用命令
 
 ```bash
 python3 backend/manage.py check
 python3 scripts/run_ai_eval.py
-npm run build
+cd frontend && npm run type-check
+cd frontend && npm run build-only
 ```
 
-## 建议阅读顺序
+## 项目主流程
 
-如果只是启动项目，这份 README 就够了。  
-如果要继续理解或迭代 AI 逻辑，建议按这个顺序阅读：
+1. 在 `/studio` 创建或编辑角色
+2. 配置 `custom_prompt`、记忆模式和音色
+3. 在同一处调整 chat / ASR / TTS 运行时
+4. 先试聊、试听
+5. 再进入 `/chat/:characterId` 做正式对话
 
-1. [AI Overview](docs/AI_OVERVIEW.md)
-2. [AI Engineering](docs/AI_ENGINEERING.md)
-3. [Platform Functions](docs/PLATFORM_FUNCTIONS.md)
-4. [Iteration Log](docs/ITERATION_LOG.md)
+## 文档导航
+
+如果要看实现细节，建议按这个顺序阅读：
+
+1. [AI Overview](/Users/apple/project/AIFrients/docs/AI_OVERVIEW.md)
+2. [AI Engineering](/Users/apple/project/AIFrients/docs/AI_ENGINEERING.md)
+3. [Platform Functions](/Users/apple/project/AIFrients/docs/PLATFORM_FUNCTIONS.md)
 
 辅助文件：
 
-- [AI Evaluation Cases](docs/ai_eval_cases.json)
-
-## 项目结构
-
-```text
-AIFriends/
-├── backend/
-├── frontend/
-├── docs/
-└── scripts/
-```
+- [AI Evaluation Cases](/Users/apple/project/AIFrients/docs/ai_eval_cases.json)
+- [Iteration Log](/Users/apple/project/AIFrients/docs/ITERATION_LOG.md)
 
 ## 许可证
 
-[MIT](LICENSE)
+[MIT](/Users/apple/project/AIFrients/LICENSE)

@@ -1,132 +1,90 @@
 # AI Engineering
 
-这份文档是 AIFriends 的 AI 工程总设计说明。  
-它的目标是让后续开发者能回答：
+这份文档是 AIFriends 当前版本的 AI 工程说明。  
+它的目标是让后续维护者快速回答：
 
 1. 当前 AI 系统怎样工作
-2. 哪些能力已经做了，为什么这样做
-3. 哪些数据会影响角色能力
-4. 每条链路的输入、输出、失败模式是什么
-5. 以后如果要继续增强角色能力，应该从哪里动手
-
-本文档面向：
-
-- 当前项目维护者
-- 后续接手的工程师
-- 需要在角色一致性 / 记忆 / 语音 / 诊断方向持续迭代的人
+2. 每条链路的输入、输出、失败模式是什么
+3. 哪些数据会直接影响角色能力
+4. 以后继续增强角色能力时，应该从哪里动手
 
 ---
 
-## 1. 如何阅读这份文档
+## 1. 项目当前形态
 
-如果你第一次进入这个项目，建议按下面的顺序阅读：
+AIFriends 现在是一个单实例角色 AI 项目。
 
-1. 先看第 2 节，理解端到端链路
-2. 再看第 3 节，理解五层职责边界
-3. 再看第 4 节，理解哪些数据决定角色能力
-4. 最后按需深入 runtime、conversation、memory、diagnostics、persona
+产品主线只有三页：
 
-## 2. 项目定位
+- `/` 角色列表
+- `/chat/:characterId` 正式聊天
+- `/studio` 角色与运行时工作台
 
-AIFriends 当前聚焦在角色驱动的 AI 聊天体验。  
-它的 AI 核心目标是：
+这意味着当前 AI 系统的默认假设是：
 
-- 让角色长期稳定地像自己
-- 让角色和用户的关系具有连续性
-- 让语音输入、文字输入、语音播报共享同一套角色逻辑
-- 让创作者可控地塑造角色行为
-- 让运行时和失败模式可诊断
-
-当前 AI 工程的重点是：
-
-- Prompt 工程
-- 记忆工程
-- 语音一致性
-- Runtime 解析
-- Diagnostics
-- 创作者配置工程
+- 只有一套本地持久配置
+- 每个角色对应一段持久会话
+- Studio 负责配置与实验
+- 聊天页负责终端对话
 
 ---
 
-## 3. 端到端链路
+## 2. 五层职责
 
-从一次用户输入到一次可诊断的角色回复，当前链路是：
+当前 AI 工程按 5 层拆开最清晰：
 
-1. 用户输入文字或语音
-2. Runtime Layer 解析 chat / ASR / TTS 来源
-3. Conversation Layer 组装 prompt layers
-4. 模型生成回复
-5. 回复写入 `Message`
-6. Memory Layer 条件更新摘要、关系记忆和偏好记忆
-7. Diagnostics Layer 生成本轮调试信息
-8. Studio 或聊天页消费结果
+### 2.1 runtime
 
-## 4. AI 能力地图
+负责解析当前 chat / ASR / TTS 的实际配置来源。
 
-当前系统可以分成 5 层：
+代码入口：
 
-1. `runtime`
-2. `conversation`
-3. `memory`
-4. `diagnostics`
-5. `persona`
+- [backend/web/ai_settings_service.py](/Users/apple/project/AIFrients/backend/web/ai_settings_service.py)
+- [backend/web/ai_settings_views.py](/Users/apple/project/AIFrients/backend/web/ai_settings_views.py)
 
-它们之间的关系如下：
+### 2.2 conversation
 
-```mermaid
-flowchart TD
-    A["User Input (text / voice)"] --> B["Runtime Resolution"]
-    B --> C["Prompt Assembly"]
-    C --> D["Model Response"]
-    D --> E["Message Persistence"]
-    E --> F["Memory Update"]
-    D --> G["Diagnostics Snapshot"]
-    F --> G
-    G --> H["Studio Diagnostics / SSE meta.debug"]
-```
+负责 prompt 分层、模型调用、流式回复和回复后处理。
 
-这 5 层是后续扩展时的真实边界。  
-如果以后要增强角色能力，优先也是按这 5 层拆任务。
+代码入口：
 
----
+- [backend/web/chat_services.py](/Users/apple/project/AIFrients/backend/web/chat_services.py)
+- [backend/web/message_views.py](/Users/apple/project/AIFrients/backend/web/message_views.py)
 
-## 5. 代码入口与职责边界
+### 2.3 memory
 
-当前主要代码入口如下：
+负责会话摘要、关系记忆、用户偏好记忆的注入和刷新。
 
-- Runtime 解析：
-  - [backend/web/ai_settings_service.py](/Users/apple/project/AIFrients/backend/web/ai_settings_service.py)
-- 对话主链路：
-  - [backend/web/chat_services.py](/Users/apple/project/AIFrients/backend/web/chat_services.py)
-- 消息接口：
-  - [backend/web/message_views.py](/Users/apple/project/AIFrients/backend/web/message_views.py)
-- 角色配置与音色：
-  - [backend/web/character_views.py](/Users/apple/project/AIFrients/backend/web/character_views.py)
-- Studio 聚合接口：
-  - [backend/web/studio_views.py](/Users/apple/project/AIFrients/backend/web/studio_views.py)
-- 运行时设置接口：
-  - [backend/web/ai_settings_views.py](/Users/apple/project/AIFrients/backend/web/ai_settings_views.py)
-- 数据模型：
-  - [backend/web/models.py](/Users/apple/project/AIFrients/backend/web/models.py)
+代码入口：
 
-前端主要入口：
+- [backend/web/chat_services.py](/Users/apple/project/AIFrients/backend/web/chat_services.py)
 
-- Studio：
-  - [frontend/src/views/StudioView.vue](/Users/apple/project/AIFrients/frontend/src/views/StudioView.vue)
-- 正式聊天页：
-  - [frontend/src/views/ChatView.vue](/Users/apple/project/AIFrients/frontend/src/views/ChatView.vue)
-- 创作者角色表单：
-  - [frontend/src/components/CharacterForm.vue](/Users/apple/project/AIFrients/frontend/src/components/CharacterForm.vue)
-- Runtime 设置：
-  - [frontend/src/views/ApiSettingsView.vue](/Users/apple/project/AIFrients/frontend/src/views/ApiSettingsView.vue)
+### 2.4 diagnostics
+
+负责把 prompt layers、runtime source、记忆注入和错误标签暴露给 Studio。
+
+代码入口：
+
+- [backend/web/chat_services.py](/Users/apple/project/AIFrients/backend/web/chat_services.py)
+- [backend/web/studio_views.py](/Users/apple/project/AIFrients/backend/web/studio_views.py)
+
+### 2.5 persona
+
+负责角色设定、`custom_prompt`、AI 行为参数和音色。
+
+代码入口：
+
+- [backend/web/models.py](/Users/apple/project/AIFrients/backend/web/models.py)
+- [backend/web/character_views.py](/Users/apple/project/AIFrients/backend/web/character_views.py)
+- [frontend/src/components/CharacterForm.vue](/Users/apple/project/AIFrients/frontend/src/components/CharacterForm.vue)
 
 ---
 
-## 6. 数据模型：哪些数据决定角色能力
+## 3. 数据模型：哪些数据直接影响角色能力
 
-### 4.1 Character
+### 3.1 Character
 
-`Character` 决定角色本体和创作者配置。
+`Character` 是角色本体。
 
 关键字段：
 
@@ -143,21 +101,20 @@ flowchart TD
 - `tools_require_confirmation`
 - `tools_read_only`
 
-作用：
+这些字段共同决定：
 
-- `profile`：角色的公开设定基础
-- `custom_prompt`：创作者给模型的硬规则
-- `reply_style / reply_length / initiative_level / persona_boundary`：结构化行为控制
-- `memory_mode`：决定记忆注入和刷新频率
-- `voice`：决定语音播报时使用的音色
+- 角色公开形象
+- 模型看到的人设与硬规则
+- 回复风格、主动性和边界
+- 是否注入会话记忆
+- 语音播报使用哪种音色
 
-### 4.2 Friend
+### 3.2 Friend（当前作为会话存储）
 
-`Friend` 表示“某个用户和某个角色之间”的关系，会话能力主要挂在这里。
+数据库里这个模型名仍然叫 `Friend`，但在当前产品语义里它承担的是 **角色会话**。
 
 关键字段：
 
-- `user`
 - `character`
 - `conversation_summary`
 - `relationship_memory`
@@ -167,16 +124,13 @@ flowchart TD
 - `last_debug_snapshot`
 - `last_debug_at`
 
-作用：
+当前语义：
 
-- `conversation_summary`：长对话摘要
-- `relationship_memory`：角色与用户的关系状态
-- `user_preference_memory`：用户称呼、喜好、边界等
-- `memory_updated_at`：最近成功刷新记忆的时间
-- `memory_refresh_attempted_at`：用于失败冷却
-- `last_debug_snapshot`：最近一次试聊或聊天的诊断快照
+- 一个角色对应一个本地持久会话
+- 消息历史和长期记忆都挂在这里
+- Studio 最近实验摘要也从这里读取
 
-### 4.3 Message
+### 3.3 Message
 
 `Message` 存真实消息历史。
 
@@ -189,13 +143,13 @@ flowchart TD
 
 作用：
 
-- 支撑聊天记录加载
-- 支撑最近历史窗口注入
-- 支撑记忆刷新 transcript 构造
+- 聊天页历史消息加载
+- 最近对话注入 prompt
+- 记忆刷新 transcript 构造
 
-### 4.4 UserAISettings
+### 3.4 UserAISettings（当前作为单实例 runtime 设置）
 
-`UserAISettings` 决定用户级运行时配置。
+数据库里模型名仍然叫 `UserAISettings`，但当前产品语义里它承担的是 **单实例本地 runtime 配置**。
 
 关键字段：
 
@@ -210,15 +164,14 @@ flowchart TD
 - `asr_api_base`
 - `asr_model_name`
 
-作用：
+当前语义：
 
-- 用户是否启用个人聊天模型
-- 是否启用独立 ASR
-- 是否允许聊天配置复用到 DashScope 音频链路
+- 这是项目本地唯一的一套运行时配置
+- 如果关闭，就回退到 `backend/.env` 里的系统配置
 
-### 4.5 Voice
+### 3.5 Voice
 
-`Voice` 决定角色播报时可选音色。
+`Voice` 统一描述系统音色和自定义音色。
 
 关键字段：
 
@@ -231,39 +184,39 @@ flowchart TD
 
 作用：
 
-- 系统音色和自定义音色的统一抽象
-- 角色编辑页和试听页的统一音色来源
+- 角色编辑页音色选择
+- 试听接口
+- 正式聊天页语音播报
 
 ---
 
-## 7. Runtime Layer 详细逻辑
+## 4. Runtime Layer 详细逻辑
 
-### 5.1 聊天 runtime 解析
+### 4.1 聊天 runtime 解析
 
-聊天 runtime 当前解析顺序：
+当前解析顺序：
 
-1. 读取用户级聊天配置
-2. 如果用户未启用个人配置，读取服务端默认配置
-3. 如果用户启用了个人配置但缺 key / base / model，返回 `invalid`
-4. 如果用户和服务端都没有配置，返回 `missing`
-5. 只有配置完整时返回 `ok`
+1. 读取本地保存的 runtime 配置
+2. 如果本地配置关闭，读取 `backend/.env` 中的系统默认配置
+3. 如果本地配置启用但缺 key / base / model，返回 `invalid`
+4. 如果本地和系统都没有可用聊天配置，返回 `missing`
 
-输出包括：
+当前输出：
 
 - `chat_runtime`
 - `chat_runtime_status`
 - `chat_runtime_reason`
 
-这层的关键原则：
+关键原则：
 
-- `invalid` 会直接暴露配置错误
-- `missing` 会进入服务端保底逻辑
+- `invalid` 直接暴露配置错误
+- `missing` 才允许进入本地 fallback 回复
 
-### 5.2 DashScope 音频复用
+### 4.2 DashScope 音频复用
 
-聊天配置是否允许复用给 ASR/TTS，当前由 3 层判定：
+聊天配置是否允许复用给语音链路，当前由三层判定：
 
-1. 用户显式开启 `chat_supports_dashscope_audio`
+1. 本地显式开启 `chat_supports_dashscope_audio`
 2. provider 本身是 `aliyun`
 3. `api_base` 命中 DashScope 域名兜底
 
@@ -271,89 +224,42 @@ flowchart TD
 
 - `dashscope_audio_reuse_source`
 
-它用于告诉系统和 Studio：
+### 4.3 ASR runtime
 
-- 这是用户主动开启的
-- 还是 provider 默认推断的
-- 还是域名兜底出来的
+当前优先级：
 
-### 5.3 ASR runtime
-
-ASR 解析顺序：
-
-1. 用户独立 ASR 配置
+1. 本地独立 ASR 配置
 2. 复用聊天配置
-3. 服务端默认 ASR 配置
+3. 系统默认 ASR 配置
 
-如果都不可用，则 ASR runtime 为空。
+### 4.4 TTS runtime
 
-### 5.4 TTS runtime
+TTS 当前依赖 DashScope 语音链路：
 
-TTS 当前依赖 DashScope 音频链路：
-
-1. 先拿到一个可用的 DashScope runtime
+1. 先解析出一个可用的 DashScope runtime
 2. 再把 HTTP / compatible base 映射成 WebSocket TTS 地址
-3. 挂上 TTS 模型名
-
-这意味着：
-
-- TTS 与 DashScope 音频链路共同组成一条可复用语音路径
-- TTS 运行依赖可用的音频 runtime
+3. 使用系统里的 `TTS_MODEL`
 
 ---
 
-## 8. Conversation Layer 详细逻辑
+## 5. Conversation Layer 详细逻辑
 
-### 6.1 聊天入口
+### 5.1 对话入口
 
-聊天接口入口是：
+当前正式聊天入口：
 
-- `POST /api/friend/message/chat/`
+- `POST /api/session/chat/`
 
-它接收：
+输入：
 
-- `friend_id`
+- `character_id`
 - `message`
 
-### 6.2 处理顺序
+聊天页和 Studio 试聊都走这一个接口。
 
-当前主链路顺序：
+### 5.2 Prompt 分层
 
-1. 校验 `friend_id`
-2. 校验消息非空
-3. 解析 runtime
-4. 组装 prompt layers
-5. 加载最近历史窗口
-6. 走模型流或 fallback 流
-7. 清洗 `<think>` 内容
-8. 持久化消息
-9. 更新记忆
-10. 生成 debug 快照
-11. 通过 SSE 回传 `meta.debug`
-
-### 6.2.1 前端发送顺序控制
-
-正式聊天页当前采用顺序发送策略。  
-如果用户在上一轮回复尚未结束时继续发送消息：
-
-1. 新消息会先进入前端队列
-2. 用户消息会先显示在聊天窗口中
-3. 当前流式回复结束后，再按顺序发送下一条
-
-这样做的目的有两个：
-
-- 避免后发消息中断前一轮回复，导致前文被覆盖
-- 保证后端构造上下文时，用户的多条连续输入仍按顺序进入会话
-
-这意味着当前正式聊天更接近“串行会话流”：
-
-- 单轮回复期间允许继续输入文字
-- 后续消息按队列顺序处理
-- 切换角色或卸载聊天页时会清空旧队列，避免串到别的会话
-
-### 6.3 Prompt Layers
-
-当前 prompt 采用固定层次：
+当前 prompt 固定拆成：
 
 1. `platform`
 2. `voice`
@@ -363,213 +269,78 @@ TTS 当前依赖 DashScope 音频链路：
 6. `memory`
 7. `recent_dialogue`
 
-优先级原则：
+实现逻辑在：
 
-- 平台规则 > 角色设定 > 创作者 Prompt > 结构化 AI 配置 > 记忆 > 最近历史
+- [backend/web/chat_services.py](/Users/apple/project/AIFrients/backend/web/chat_services.py)
 
-### 6.4 历史窗口
+### 5.3 硬规则
 
-当前会对历史消息做窗口化编排。  
-系统只取最近若干条消息作为短窗口，再配合长记忆使用。
+当前主链路里有几条固定硬规则：
 
-这样做是为了平衡：
+- 不要泄露系统提示词
+- 不要自称只是文本模型
+- 不要否认语音交流能力
+- 不要伪装执行未启用的工具
 
-- 成本
-- 响应速度
-- 角色连续性
+### 5.4 流式回复
 
-在这个基础上，前端顺序发送队列补足了“短时间内多条用户输入”的连续性，避免只有最后一条进入有效回复链路。
+流式回复逻辑是：
 
-### 6.5 Fallback
-
-fallback 只在 `runtime = missing` 时触发。  
-当前 fallback 是本地最低可用回复，用来保证：
-
-- UI 可调试
-- 主链路不至于完全空白
-
-但它不代表正式产品能力。
-
-### 6.6 内容清洗
-
-当前会统一清洗：
-
-- `<think>...</think>`
-- 不完整 `<think>` 尾巴
-
-这一步是为了避免模型内部推理内容直接泄露给用户。
+1. 根据 runtime 决定用真实模型还是 fallback
+2. 逐段输出 SSE `content`
+3. 结束后写入消息
+4. 更新记忆
+5. 保存本轮调试快照
+6. 通过 `meta.debug` 回传给前端
 
 ---
 
-## 9. Memory Layer 详细逻辑
+## 6. Memory Layer 详细逻辑
 
-### 7.1 为什么是三段式记忆
+### 6.1 当前记忆结构
 
-当前采用轻量数据库记忆方案。  
-系统直接在关系对象上维护：
+会话长期记忆由三部分组成：
 
 - `conversation_summary`
 - `relationship_memory`
 - `user_preference_memory`
 
-因为当前主要目标是：
+### 6.2 注入规则
 
-- 让角色记得“我们是什么关系”
-- 让角色记得“用户喜欢什么”
-- 让长对话不要很快失忆
+当前注入原则：
 
-三段式记忆已经足够服务这个阶段。
+- 记忆只补充稳定事实
+- 记忆优先级低于角色设定
+- `memory_mode = off` 时完全不注入
 
-### 7.2 每轮都做的部分：偏好提取
+### 6.3 偏好提取
 
-每轮用户发消息后，都会先做一轮便宜的启发式提取。  
-当前重点抽：
+当前仍然以启发式规则为主，重点提取：
 
 - 称呼偏好
-- 喜欢的东西
-- 不喜欢的东西
-- 近期想聊的话题
+- 喜欢 / 不喜欢
+- 最近想聊的话题
 
-然后会做：
+### 6.4 摘要刷新
 
-1. 文本规范化
-2. 去重
-3. 长度截断
-4. 回写 `user_preference_memory`
+当前刷新触发条件：
 
-这一层不依赖额外模型。
+- 必须有足够新的 transcript
+- 必须满足轮次阈值或空摘要兜底
+- 失败后会进入冷却
 
-### 7.3 条件触发的部分：摘要刷新
+刷新仍然是同步链路里的 best effort：
 
-摘要刷新不会每轮都跑，必须先通过 gating：
-
-1. `memory_mode` 非关闭
-2. 有足够的新 transcript
-3. 达到 assistant 轮次阈值，或摘要为空
-4. 不在失败冷却窗口内
-
-通过后才会请求模型做摘要整理。
-
-### 7.4 摘要整理输入
-
-摘要刷新时会把这些信息给模型：
-
-- 角色名
-- 角色设定
-- 已有摘要
-- 已有关系记忆
-- 已有偏好记忆
-- 最近几轮对话 transcript
-
-目标是：
-
-- 提炼稳定信息
-- 不记流水账
-- 不重写角色设定
-- 不虚构
-
-### 7.5 摘要整理输出
-
-当前要求模型返回一个 JSON 对象，包含：
-
-- `conversation_summary`
-- `relationship_memory`
-- `user_preference_memory`
-
-如果 provider 不支持 JSON response format，会做降级兼容。
-
-### 7.6 失败模式
-
-当前 Memory Layer 会显式区分这些状态：
-
-- `disabled`
-- `not_triggered`
-- `cooldown`
-- `empty_transcript`
-- `unsupported_json_mode`
-- `provider_error`
-- `model_refresh`
-
-这能帮助判断：
-
-- 是没触发
-- 是冷却中
-- 还是 provider 真出问题了
-
-### 7.7 当前边界
-
-记忆当前的边界是：
-
-- 不跨角色共享
-- 不跨用户共享
-- 不能覆盖角色设定
-- 仍然是同步 best-effort
-
-如果未来响应延迟成为瓶颈，再考虑异步化。
+- 失败不阻塞主聊天
+- 只在 debug 里留下原因
 
 ---
 
-## 10. Persona Layer 详细逻辑
+## 7. Diagnostics Layer 详细逻辑
 
-### 8.1 Persona 不只是 profile
+### 7.1 SSE 调试信息
 
-当前角色能力由两部分构成：
-
-#### 面向用户的角色信息
-
-- `name`
-- `profile`
-- 头像
-- 背景图
-
-#### 面向模型的角色控制
-
-- `custom_prompt`
-- `reply_style`
-- `reply_length`
-- `initiative_level`
-- `memory_mode`
-- `persona_boundary`
-- 工具边界预留字段
-
-### 8.2 创作者如何真正影响角色
-
-当前创作者通过下面这些结构化入口塑造角色：
-
-- `profile` 决定角色是谁
-- `custom_prompt` 决定角色必须怎么说
-- 结构化 AI 配置决定风格、长度、主动性和边界
-
-所以 `Persona Layer` 实际上是“自由文本 + 结构化控制”的混合体系。
-
-### 8.3 当前推荐写法
-
-`custom_prompt` 推荐至少拆成四段：
-
-- 必须遵守
-- 禁止行为
-- 关系边界
-- 说话方式
-
-这比写一整段松散说明更容易稳定角色。
-
----
-
-## 11. Diagnostics Layer 详细逻辑
-
-### 9.1 为什么要做 diagnostics
-
-没有 diagnostics，AI 系统的所有问题最后都会变成：
-
-- “感觉不对”
-- “好像没记住”
-- “像是模型问题”
-
-这类描述无法支撑后续迭代。
-
-### 9.2 实时诊断
-
-每轮聊天结束后，SSE 会附带一段 `meta.debug`，主要字段：
+当前 `meta.debug` 结构固定为：
 
 - `prompt_layers`
 - `memory_injection`
@@ -578,164 +349,97 @@ fallback 只在 `runtime = missing` 时触发。
 - `fallback_used`
 - `error_tag`
 
-这个输出面向：
+### 7.2 最近实验摘要
 
-- Studio 试聊
-- 实时调试
-- 本轮问题定位
+每个会话还会保存：
 
-### 9.3 最近快照
+- `last_debug_snapshot`
+- `last_debug_at`
 
-除了实时 debug，系统还会把最近一次调试结果落到：
+Studio 会读取最近一条可用会话快照，展示：
 
-- `Friend.last_debug_snapshot`
-- `Friend.last_debug_at`
-
-这个输出面向：
-
-- Studio “最近实验摘要”
-- 刷新后仍可见的最近结果
-- 跨轮次、跨页面的调试回显
-
-### 9.4 当前 diagnostics 已经能回答的问题
-
-当前基本能回答：
-
-- 这一轮用了哪些 prompt layers
-- 这一轮有没有注入摘要 / 关系记忆 / 偏好记忆
-- 这一轮有没有触发记忆更新
-- 这一轮到底是哪个 runtime 在跑
-- 有没有走 fallback
-- 出错时错误标签是什么
+- 本轮用了哪些 prompt layers
+- 是否注入摘要 / 关系 / 偏好记忆
+- 本轮是否 fallback
+- 最近一次记忆刷新原因
 
 ---
 
-## 12. 语音链路
+## 8. Persona Layer 详细逻辑
 
-### 10.1 语音输入
+### 8.1 公开角色信息
 
-语音输入通过 ASR 把音频转成文本，最后仍然进入同一条聊天主链。  
-也就是说：
+主要用于：
 
-- 打字输入
+- 首页卡片
+- 聊天页角色展示
+- Studio 角色资产面板
+
+### 8.2 custom_prompt
+
+这是角色真正给模型看的自定义规则区。
+
+当前建议写法：
+
+- 必须遵守
+- 禁止行为
+- 关系边界
+- 说话方式
+
+### 8.3 AI 行为参数
+
+当前结构化参数包括：
+
+- `reply_style`
+- `reply_length`
+- `initiative_level`
+- `memory_mode`
+- `persona_boundary`
+
+这些参数会被编译成 prompt 中的 creator AI rules。
+
+### 8.4 音色
+
+角色音色用于两处：
+
+- Studio 试听
+- 聊天页正式语音播报
+
+当前文字、语音输入、语音播报都要求围绕同一角色设定保持一致。
+
+---
+
+## 9. Studio 与聊天页的职责分工
+
+### 9.1 Studio
+
+Studio 是工程态工作台，负责：
+
+- 配置角色
+- 配置 runtime
+- 试听
+- 试聊
+- 看调试摘要
+- 清空长期记忆
+
+### 9.2 聊天页
+
+聊天页只负责终端对话体验：
+
+- 查看历史消息
+- 文字聊天
 - 语音输入
-
-最终都会进入同一个 prompt 与记忆系统。
-
-### 10.2 语音播报
-
-角色回复后，如果启用了音色，会优先尝试服务端 TTS。  
-如果服务端 TTS 不可用，再回退到其他播报方式。
-
-### 10.3 为什么语音与角色主链统一
-
-语音当前与角色主链共享同一套角色系统：
-
-- 输入侧接到 Conversation Layer
-- 输出侧接到角色音色与 TTS
-
-所以语音能力提升的核心不只是识别率或播报质量，还包括：
-
-- 内容认知与产品事实一致
-- 播报不破坏角色感
-- 语音输入不会绕过角色逻辑
+- 语音播报
+- 重置聊天窗口
 
 ---
 
-## 13. Studio 在 AI 工程里的职责
+## 10. 当前最值得继续优化的方向
 
-Studio 是创作者实验台。
+如果后续继续增强角色能力，最值得优先做的是：
 
-它承担的职责包括：
-
-- 编辑角色公开信息
-- 编辑 `custom_prompt`
-- 编辑 AI 行为配置
-- 编辑音色配置
-- 试听音色
-- 试聊角色
-- 查看 runtime summary
-- 查看最近调试结果
-
-所以 Studio 的意义在于：
-
-> 让创作者能够在同一处定义角色、试验角色、诊断角色。
-
----
-
-## 14. 当前最需要继续优化的地方
-
-### 12.1 角色一致性
-
-继续提升：
-
-- 角色不跳出设定
-- 角色长期语气稳定
-- 角色在语音场景下不自我矛盾
-
-### 12.2 记忆质量
-
-继续提升：
-
-- 偏好提取稳定性
-- 关系记忆稳定性
-- 摘要刷新质量
-- 冷却策略合理性
-
-### 12.3 Diagnostics
-
-继续提升：
-
-- provider 兼容分类
-- 更细的错误标签
-- 延迟与质量指标
-- 评估结果可对照
-
-### 12.4 创作者 Prompt 工程化
-
-继续提升：
-
-- 给 `custom_prompt` 更强模板
-- 给角色控制更好的解释
-- 减少创作者“盲写 prompt”成本
-
----
-
-## 15. 评估与回归
-
-当前 repo 已经有轻量评估清单：
-
-- [ai_eval_cases.json](/Users/apple/project/AIFrients/docs/ai_eval_cases.json)
-- [run_ai_eval.py](/Users/apple/project/AIFrients/scripts/run_ai_eval.py)
-
-当前评估重点是：
-
-- 角色一致性
-- 语音一致性
-- 偏好记忆命中
-- fallback 暴露正确性
-
-这套评估现在以人工审阅为主。  
-后续如果要继续加强角色能力，评估集应该先扩，再考虑更自动化评分。
-
----
-
-## 16. 后续投入顺序建议
-
-现阶段更适合排在角色能力主线之后的方向包括：
-
-- 通用 RAG
-- 通用 Agent
-- 工具执行
-- 多渠道接入
-- 自动化工作流
-
-这些方向都有价值，但当前阶段更适合把资源优先投入角色能力主线。
-
----
-
-## 17. 一句话结论
-
-AIFriends 当前 AI 工程的重点是：
-
-让角色 **更稳定、更会记、更像自己、更能解释清楚自己为什么这样工作**。
+1. 记忆刷新进一步异步化
+2. 偏好提取从启发式走向更稳的结构化提取
+3. 角色一致性评估集继续扩充
+4. Studio 诊断面板继续工程化
+5. 角色 Prompt 模板进一步结构化

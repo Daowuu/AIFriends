@@ -2,33 +2,17 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AIFriends is a character-driven AI chat project centered on three capabilities:
+AIFriends is a single-instance AI character chat project. It focuses on three things:
 
-- role consistency
-- long-term relationship memory
-- voice-aligned interaction
+- character consistency
+- persistent session memory
+- text / voice sharing one character logic
 
-It is built for creator-controlled character chat.
+The product surface is intentionally small:
 
-## What You Can Do
-
-- Create and tune characters in `AI Studio`
-- Configure public persona, `custom_prompt`, dialogue style, memory mode, and voice
-- Run trial chat and voice preview before entering the formal chat page
-- Use text chat, voice input, and voice playback with one shared character logic
-- Try the chat experience before logging in
-- Inspect runtime diagnostics for chat / ASR / TTS
-
-## Main Routes
-
-- `/` public feed
-- `/chat/:characterId` formal chat
-- `/studio` AI Studio
-- `/friends` friend / relationship page
-- `/profile` profile page
-- `/settings/api` user runtime settings
-
-`/workspace` redirects to `/studio`.
+- `/` character list
+- `/chat/:characterId` conversation page
+- `/studio` character + runtime workspace
 
 ## Quick Start
 
@@ -73,7 +57,7 @@ Frontend default:
 
 ### 4. Start both together
 
-From repo root:
+From the repo root:
 
 ```bash
 npm install
@@ -82,11 +66,7 @@ npm run dev
 
 ## Minimal Config
 
-Server-side defaults are centralized in:
-
-- [backend/.env.example](backend/.env.example)
-
-First copy the local config file:
+First copy the backend env file:
 
 ```bash
 cp backend/.env.example backend/.env
@@ -94,7 +74,7 @@ cp backend/.env.example backend/.env
 
 Then edit:
 
-- [backend/.env](backend/.env)
+- [backend/.env](/Users/apple/project/AIFrients/backend/.env)
 
 Most important variables:
 
@@ -104,59 +84,50 @@ API_KEY=""
 API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 CHAT_MODEL="qwen-plus"
 CHAT_SUPPORTS_DASHSCOPE_AUDIO="true"
+
 ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"
 TTS_MODEL="cosyvoice-v3.5-plus"
-DEMO_TEXT_CHAT_LIMIT="20"
-DEMO_VOICE_CHAT_LIMIT="5"
+
 DJANGO_SECRET_KEY=""
 DJANGO_DEBUG="true"
 DJANGO_ALLOWED_HOSTS="127.0.0.1,localhost,testserver"
 DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
 
-After updating `backend/.env`, restart the Django server.
+After updating `backend/.env`, restart Django.
 
-Runtime resolution:
-
-- valid user config: use user config
-- broken user config: return `invalid`
-- no user config: use server-side defaults when available
-- no valid runtime anywhere: return `missing`
-
-## Common Commands
+## Main Commands
 
 ```bash
 python3 backend/manage.py check
 python3 scripts/run_ai_eval.py
-npm run build
+cd frontend && npm run type-check
+cd frontend && npm run build-only
 ```
 
-## Reading Order
+## Project Flow
 
-If you only need to run the project, this README is enough.  
-If you need to understand or extend the AI logic, read in this order:
+1. Create or edit a character in `/studio`
+2. Configure `custom_prompt`, memory mode, and voice
+3. Adjust chat / ASR / TTS runtime in the same Studio
+4. Trial chat and voice preview
+5. Enter `/chat/:characterId` for the formal conversation
 
-1. [AI Overview](docs/AI_OVERVIEW.md)
-2. [AI Engineering](docs/AI_ENGINEERING.md)
-3. [Platform Functions](docs/PLATFORM_FUNCTIONS.md)
-4. [Iteration Log](docs/ITERATION_LOG.md)
+## Docs
+
+Start here if you want implementation details:
+
+1. [AI Overview](/Users/apple/project/AIFrients/docs/AI_OVERVIEW.md)
+2. [AI Engineering](/Users/apple/project/AIFrients/docs/AI_ENGINEERING.md)
+3. [Platform Functions](/Users/apple/project/AIFrients/docs/PLATFORM_FUNCTIONS.md)
 
 Supporting files:
 
-- [AI Evaluation Cases](docs/ai_eval_cases.json)
-
-## Project Structure
-
-```text
-AIFriends/
-├── backend/
-├── frontend/
-├── docs/
-└── scripts/
-```
+- [AI Evaluation Cases](/Users/apple/project/AIFrients/docs/ai_eval_cases.json)
+- [Iteration Log](/Users/apple/project/AIFrients/docs/ITERATION_LOG.md)
 
 ## License
 
-[MIT](LICENSE)
+[MIT](/Users/apple/project/AIFrients/LICENSE)

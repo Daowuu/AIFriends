@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<{
   pending: false,
   disabled: false,
   allowVoiceMode: true,
-  asrEndpoint: '/friend/message/asr/',
+  asrEndpoint: '/session/asr/',
   disabledReason: '',
   placeholder: '输入一句话，开始聊天。',
   resetToken: 0,

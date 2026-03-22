@@ -177,7 +177,7 @@ const previewVoiceFromCurrentDraft = async (customText?: string) => {
   try {
     const previewText = String(customText ?? voicePreviewText.value).trim() || '你好呀，今天想和你聊点什么？'
     const response = await api.post(
-      '/create/character/voice/preview/',
+      '/character/voice/preview/',
       {
         voice_id: selectedVoiceId.value,
         custom_voice_name: customVoiceName.value.trim(),
@@ -239,7 +239,7 @@ const saveCustomVoice = async () => {
   customVoiceMessage.value = ''
 
   try {
-    const response = await api.post<{ voice: VoiceOption, detail: string }>('/create/character/voice/save/', {
+    const response = await api.post<{ voice: VoiceOption, detail: string }>('/character/voice/save/', {
       voice_id: selectedCustomVoice.value?.id ?? '',
       custom_voice_name: customVoiceName.value.trim(),
       custom_voice_code: customVoiceCode.value.trim(),
@@ -276,7 +276,7 @@ const removeCustomVoice = async () => {
   customVoiceMessage.value = ''
 
   try {
-    const response = await api.post<{ detail?: string }>(`/create/character/voice/${selectedCustomVoice.value.id}/remove/`)
+    const response = await api.post<{ detail?: string }>(`/character/voice/${selectedCustomVoice.value.id}/remove/`)
     selectedVoiceId.value = null
     resetCustomVoiceDraft()
     stopVoicePreview()

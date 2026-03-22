@@ -118,13 +118,13 @@ onBeforeUnmount(() => {
         <div class="grid gap-6 p-7 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
           <div>
             <div class="inline-flex items-center rounded-full bg-base-200 px-3 py-1 text-xs font-black tracking-[0.22em] text-base-content/60">
-              AIFRIENDS FEED
+              ROLE LIBRARY
             </div>
             <h1 class="mt-4 text-4xl font-black tracking-tight text-base-content">
               发现角色，进入聊天页，直接开聊。
             </h1>
             <p class="mt-3 max-w-2xl text-sm leading-7 text-base-content/60">
-              首页已经接入搜索和流式加载。你可以按角色名、介绍、作者名搜索，点进角色后会直接进入沉浸式聊天页。
+              首页已经接入搜索和流式加载。你可以按角色名、介绍、Prompt 关键词搜索，点进角色后会直接进入沉浸式聊天页。
             </p>
             <div v-if="queryText" class="mt-5 inline-flex rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-800">
               当前搜索：{{ queryText }}
@@ -150,9 +150,9 @@ onBeforeUnmount(() => {
           <div class="text-base font-black">浏览提示</div>
         </div>
         <ul class="mt-5 space-y-3 text-sm leading-7 text-base-content/65">
-          <li class="rounded-2xl border border-base-200 px-4 py-3">点击角色卡片会直接进入新的聊天页。</li>
-          <li class="rounded-2xl border border-base-200 px-4 py-3">点击作者名可以进入 TA 的个人主页继续浏览更多角色。</li>
-          <li class="rounded-2xl border border-base-200 px-4 py-3">未登录也可以直接试玩聊天。</li>
+          <li class="rounded-2xl border border-base-200 px-4 py-3">点击角色卡片会直接进入聊天页。</li>
+          <li class="rounded-2xl border border-base-200 px-4 py-3">所有角色都来自本地单实例工作台，首页只负责筛选和进入聊天。</li>
+          <li class="rounded-2xl border border-base-200 px-4 py-3">文字聊天、语音输入和语音播报共用同一套角色逻辑。</li>
         </ul>
       </aside>
     </div>
@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
       v-if="isInitialLoading"
       class="grid min-h-72 place-items-center rounded-[32px] border border-base-200 bg-base-100 text-base-content/55 shadow-sm"
     >
-      正在加载首页角色流...
+      正在加载角色列表...
     </div>
 
     <template v-else>

@@ -1,20 +1,17 @@
+from django.db import models
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.db import models
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 import dashscope
 from dashscope.audio.tts_v2 import SpeechSynthesizer
 
-from web.ai_settings_service import (
-    get_dashscope_runtime_config,
-    get_dashscope_websocket_api_url,
-    get_public_dashscope_runtime_config,
-)
-from web.models import Character, Friend, Voice
+from web.ai_settings_service import get_dashscope_runtime_config, get_dashscope_websocket_api_url
+from web.local_runtime import get_or_create_local_operator_user
+from web.models import Character, Voice
 
 
 def _build_tts_failure_detail(synthesizer, voice: Voice, fallback: str):
@@ -29,12 +26,7 @@ def _build_tts_failure_detail(synthesizer, voice: Voice, fallback: str):
         event = header.get('event') or ''
         task_id = header.get('task_id') or request_id
         error_code = error.get('code') or payload.get('code') or ''
-        error_message = (
-            error.get('message')
-            or payload.get('message')
-            or header.get('message')
-            or ''
-        )
+        error_message = error.get('message') or payload.get('message') or header.get('message') or ''
 
         parts = [fallback]
         if error_message:
@@ -57,23 +49,17 @@ def _build_tts_failure_detail(synthesizer, voice: Voice, fallback: str):
     return '；'.join(parts)
 
 
-def _resolve_character_voice(friend: Friend):
-    if friend.character.voice and friend.character.voice.is_active:
-        return friend.character.voice
-    return Voice.objects.filter(is_active=True, source='system').order_by('name', 'id').first()
-
-
 def _resolve_public_character_voice(character: Character):
     if character.voice and character.voice.is_active:
         return character.voice
     return Voice.objects.filter(is_active=True, source='system').order_by('name', 'id').first()
 
 
-def _build_preview_voice(user, payload):
+def _build_preview_voice(payload):
     custom_voice_code = str(payload.get('custom_voice_code', '') or '').strip()
     if custom_voice_code:
         return Voice(
-            owner=user,
+            owner=get_or_create_local_operator_user(),
             name=str(payload.get('custom_voice_name', '') or '').strip() or '自定义音色',
             provider='aliyun',
             source='custom',
@@ -92,12 +78,8 @@ def _build_preview_voice(user, payload):
     if voice_id <= 0:
         return None
 
-    return Voice.objects.filter(
-        is_active=True,
-    ).filter(
-        pk=voice_id,
-    ).filter(
-        models.Q(source='system') | models.Q(owner=user),
+    return Voice.objects.filter(is_active=True).filter(pk=voice_id).filter(
+        models.Q(source='system') | models.Q(owner=get_or_create_local_operator_user()),
     ).first()
 
 
@@ -115,43 +97,35 @@ def _synthesize_audio(text: str, voice: Voice, runtime_config):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def message_tts_view(request):
     try:
-        friend_id = int(request.data.get('friend_id', 0) or 0)
+        character_id = int(request.data.get('character_id', 0) or 0)
     except (TypeError, ValueError):
-        return Response({'detail': 'friend_id 格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'character_id 格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
 
     text = str(request.data.get('text', '') or '').strip()
-    if friend_id <= 0:
-        return Response({'detail': '缺少有效的 friend_id。'}, status=status.HTTP_400_BAD_REQUEST)
+    if character_id <= 0:
+        return Response({'detail': '缺少有效的 character_id。'}, status=status.HTTP_400_BAD_REQUEST)
     if not text:
         return Response({'detail': '缺少有效的播报文本。'}, status=status.HTTP_400_BAD_REQUEST)
 
-    friend = get_object_or_404(
-        Friend.objects.select_related('character', 'character__voice'),
-        pk=friend_id,
-        user=request.user,
-    )
-    voice = _resolve_character_voice(friend)
+    character = get_object_or_404(Character.objects.select_related('voice'), pk=character_id)
+    voice = _resolve_public_character_voice(character)
     if not voice:
         return Response({'detail': '当前没有可用音色。'}, status=status.HTTP_400_BAD_REQUEST)
 
-    runtime_config = get_dashscope_runtime_config(request.user)
+    runtime_config = get_dashscope_runtime_config()
     if not runtime_config:
         return Response({
-            'detail': '语音播报当前需要阿里云百炼配置。请在 API 设置中启用阿里云聊天或 ASR 配置。',
+            'detail': '当前语音播报未启用，请先在 Studio 的运行时配置里补全可用的 TTS 或兼容 DashScope 的聊天配置。',
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         synthesizer, audio = _synthesize_audio(text, voice, runtime_config)
         if not audio:
             return Response({
-                'detail': _build_tts_failure_detail(
-                    synthesizer,
-                    voice,
-                    '语音合成没有返回有效音频。',
-                ),
+                'detail': _build_tts_failure_detail(synthesizer, voice, '语音合成没有返回有效音频。'),
             }, status=status.HTTP_502_BAD_GATEWAY)
 
         payload = bytes(audio) if not isinstance(audio, (bytes, bytearray)) else audio
@@ -164,31 +138,27 @@ def message_tts_view(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def preview_tts_view(request):
     text = str(request.data.get('text', '') or '').strip()
     if not text:
         return Response({'detail': '缺少有效的试听文本。'}, status=status.HTTP_400_BAD_REQUEST)
 
-    voice = _build_preview_voice(request.user, request.data)
+    voice = _build_preview_voice(request.data)
     if not voice:
         return Response({'detail': '请先选择一个音色，或填入自定义音色 ID。'}, status=status.HTTP_400_BAD_REQUEST)
 
-    runtime_config = get_dashscope_runtime_config(request.user)
+    runtime_config = get_dashscope_runtime_config()
     if not runtime_config:
         return Response({
-            'detail': '语音播报当前需要阿里云百炼配置。请先在 API 设置中启用阿里云聊天或 ASR 配置。',
+            'detail': '当前语音播报未启用，请先在 Studio 的运行时配置里补全可用的 TTS 或兼容 DashScope 的聊天配置。',
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         synthesizer, audio = _synthesize_audio(text, voice, runtime_config)
         if not audio:
             return Response({
-                'detail': _build_tts_failure_detail(
-                    synthesizer,
-                    voice,
-                    '语音试听没有返回有效音频。',
-                ),
+                'detail': _build_tts_failure_detail(synthesizer, voice, '语音试听没有返回有效音频。'),
             }, status=status.HTTP_502_BAD_GATEWAY)
 
         payload = bytes(audio) if not isinstance(audio, (bytes, bytearray)) else audio
@@ -198,51 +168,3 @@ def preview_tts_view(request):
         return response
     except Exception as error:
         return Response({'detail': f'语音试听失败：{error}'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def demo_message_tts_view(request):
-    try:
-        character_id = int(request.data.get('character_id', 0) or 0)
-    except (TypeError, ValueError):
-        return Response({'detail': 'character_id 格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
-
-    text = str(request.data.get('text', '') or '').strip()
-    if character_id <= 0:
-        return Response({'detail': '缺少有效的 character_id。'}, status=status.HTTP_400_BAD_REQUEST)
-    if not text:
-        return Response({'detail': '缺少有效的播报文本。'}, status=status.HTTP_400_BAD_REQUEST)
-
-    character = get_object_or_404(
-        Character.objects.select_related('voice'),
-        pk=character_id,
-    )
-    voice = _resolve_public_character_voice(character)
-    if not voice:
-        return Response({'detail': '当前没有可用音色。'}, status=status.HTTP_400_BAD_REQUEST)
-
-    runtime_config = get_public_dashscope_runtime_config()
-    if not runtime_config:
-        return Response({
-            'detail': '当前试玩语音播报未启用，请先在服务端配置可用的 TTS 或兼容 DashScope 的聊天配置。',
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        synthesizer, audio = _synthesize_audio(text, voice, runtime_config)
-        if not audio:
-            return Response({
-                'detail': _build_tts_failure_detail(
-                    synthesizer,
-                    voice,
-                    '试玩语音播报没有返回有效音频。',
-                ),
-            }, status=status.HTTP_502_BAD_GATEWAY)
-
-        payload = bytes(audio) if not isinstance(audio, (bytes, bytearray)) else audio
-        response = HttpResponse(payload, content_type='audio/mpeg')
-        response['Cache-Control'] = 'no-store'
-        response['X-Voice-Code'] = voice.voice_code
-        return response
-    except Exception as error:
-        return Response({'detail': f'试玩语音播报失败：{error}'}, status=status.HTTP_400_BAD_REQUEST)

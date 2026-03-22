@@ -79,7 +79,7 @@ const loadSettings = async () => {
       settings: AISettings
       providers: AIProviderOption[]
       runtime_summary: AIRuntimeSummary
-    }>('/user/settings/ai/')
+    }>('/runtime/settings/')
 
     providerOptions.value = response.data.providers
     applySettings(response.data.settings)
@@ -129,7 +129,7 @@ const handleSaveChatConfig = async () => {
       settings: AISettings
       providers: AIProviderOption[]
       runtime_summary: AIRuntimeSummary
-    }>('/user/settings/ai/', {
+    }>('/runtime/settings/', {
       enabled: enabled.value,
       provider: provider.value,
       api_base: apiBase.value.trim(),
@@ -165,7 +165,7 @@ const handleSaveAsrConfig = async () => {
       settings: AISettings
       providers: AIProviderOption[]
       runtime_summary: AIRuntimeSummary
-    }>('/user/settings/ai/', {
+    }>('/runtime/settings/', {
       asr_enabled: asrEnabled.value,
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
@@ -206,7 +206,7 @@ const handleTestConnection = async () => {
         api_base: string
         model_name: string
       }
-    }>('/user/settings/ai/test/', {
+    }>('/runtime/settings/test/', {
       provider: provider.value,
       api_base: apiBase.value.trim(),
       model_name: modelName.value.trim(),
@@ -244,7 +244,7 @@ const handleTestAsrConnection = async () => {
         api_base: string
         model_name: string
       }
-    }>('/user/settings/ai/test_asr/', {
+    }>('/runtime/settings/test_asr/', {
       asr_enabled: asrEnabled.value,
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
@@ -282,7 +282,7 @@ onMounted(() => {
       <div class="flex flex-col gap-5 border-b border-base-200/80 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div class="max-w-3xl">
           <div class="text-xs font-black uppercase tracking-[0.28em] text-sky-600">Runtime Config</div>
-          <h1 class="mt-3 text-3xl font-black tracking-tight text-base-content sm:text-4xl">模型 API 设置</h1>
+          <h1 class="mt-3 text-3xl font-black tracking-tight text-base-content sm:text-4xl">运行时配置</h1>
           <p class="mt-3 text-sm leading-7 text-base-content/65 sm:text-[15px]">
             这里统一管理聊天模型和语音识别的运行时配置。聊天与 ASR 分开保存、分开测试，但都保持在同一个设置页里，避免来回切换。
           </p>
@@ -292,13 +292,13 @@ onMounted(() => {
           <div class="rounded-[24px] border border-base-200 bg-white px-4 py-3 shadow-sm">
             <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">聊天模式</div>
             <div class="mt-2 text-sm font-semibold text-base-content">
-              {{ enabled ? '个人配置优先' : '服务端默认' }}
+              {{ enabled ? '本地配置优先' : '系统默认' }}
             </div>
           </div>
           <div class="rounded-[24px] border border-base-200 bg-white px-4 py-3 shadow-sm">
             <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">ASR 模式</div>
             <div class="mt-2 text-sm font-semibold text-base-content">
-              {{ asrEnabled ? '独立语音配置' : '复用聊天或环境' }}
+              {{ asrEnabled ? '独立语音配置' : '复用聊天或系统环境' }}
             </div>
           </div>
         </div>
@@ -342,11 +342,11 @@ onMounted(() => {
                   <div class="max-w-2xl">
                     <div class="text-sm font-bold text-base-content">运行方式</div>
                     <p class="mt-1 text-sm leading-7 text-base-content/60">
-                      开启后优先使用你的个人聊天配置；关闭后直接回退到当前部署环境里的默认聊天配置。
+                      开启后优先使用本地保存的聊天配置；关闭后直接回退到当前部署环境里的默认聊天配置。
                     </p>
                   </div>
                   <label class="label cursor-pointer justify-start gap-3 rounded-full border border-sky-200 bg-white px-4 py-3 shadow-sm">
-                    <span class="text-sm font-semibold text-base-content">启用个人配置</span>
+                    <span class="text-sm font-semibold text-base-content">启用本地配置</span>
                     <input v-model="enabled" type="checkbox" class="toggle toggle-primary" />
                   </label>
                 </div>
@@ -585,7 +585,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between gap-3">
                   <div class="text-sm font-black text-base-content">聊天</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm">
-                    {{ enabled ? '个人配置' : '环境默认' }}
+                    {{ enabled ? '本地配置' : '环境默认' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">
@@ -642,7 +642,7 @@ onMounted(() => {
                   v-if="runtimeSummary?.chat_runtime_status === 'invalid'"
                   class="mt-2 text-xs leading-6 text-error"
                 >
-                  当前用户聊天配置不完整，系统不会再静默回退到本地假回复。
+                  当前本地聊天配置不完整，系统不会再静默回退到本地假回复。
                 </div>
                 <div
                   v-else-if="runtimeSummary?.chat_runtime.reason"
@@ -713,7 +713,7 @@ onMounted(() => {
               <li>聊天支持阿里云百炼、DeepSeek、MiniMax、OpenAI，以及兼容 OpenAI 的自定义接口。</li>
               <li>语音识别当前只支持阿里云百炼兼容接口，建议单独保存一套稳定的 ASR 配置。</li>
               <li>如果模型名和 API Base 留空，系统会按对应模块自动补默认值。</li>
-              <li>这些配置只作用于你自己的账号，不会影响其他用户。</li>
+              <li>这些配置是当前单实例项目唯一的一份运行时设置，会直接影响首页、聊天和 Studio 试聊。</li>
             </ul>
           </div>
         </aside>

@@ -1,31 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import AppIcon from './components/AppIcon.vue'
-import { useUserStore } from './stores/user'
 
 const route = useRoute()
 const router = useRouter()
-const user = useUserStore()
 const searchQuery = ref('')
 
-const primaryNavItems = computed(() => {
-  if (!user.isAuthenticated) {
-    return [
-      { to: '/', label: '首页', icon: 'home' },
-    ] as const
-  }
-
-  return [
-    { to: '/', label: '首页', icon: 'home' },
-    { to: '/friends', label: '好友', icon: 'friend' },
-    { to: '/studio', label: 'AI Studio', icon: 'create' },
-  ] as const
-})
+const primaryNavItems = [
+  { to: '/', label: '首页', icon: 'home' },
+  { to: '/studio', label: 'Studio', icon: 'create' },
+] as const
 
 const isChatRoute = computed(() => route.name === 'chat')
-const showSearchAction = computed(() => route.name !== 'login' && route.name !== 'register')
 
 const handleSearch = async () => {
   const query = searchQuery.value.trim()
@@ -34,15 +22,6 @@ const handleSearch = async () => {
     query: query ? { q: query } : {},
   })
 }
-
-const handleLogout = async () => {
-  await user.logout()
-  await router.push({ name: 'home' })
-}
-
-onMounted(() => {
-  void user.ensureUserLoaded()
-})
 
 watch(() => route.query.q, (value) => {
   searchQuery.value = String(value || '')
@@ -66,7 +45,7 @@ watch(() => route.query.q, (value) => {
             </span>
             <span>
               <span class="block text-lg font-black tracking-tight">AIFriends</span>
-              <span class="block text-xs font-bold uppercase tracking-[0.24em] text-[#8a7757]">AI Companion Studio</span>
+              <span class="block text-xs font-bold uppercase tracking-[0.24em] text-[#8a7757]">AI Character Studio</span>
             </span>
           </RouterLink>
         </div>
@@ -88,9 +67,9 @@ watch(() => route.query.q, (value) => {
         </nav>
         <div class="px-5 pb-6">
           <div class="rounded-[24px] border border-[#e3d9c7] bg-white/72 px-4 py-4 text-sm text-[#56635d] shadow-sm">
-            <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">Workspace</div>
-            <div class="mt-2 font-bold text-[#1b2c27]">{{ user.isAuthenticated ? user.displayName : 'Guest' }}</div>
-            <div class="mt-1 text-xs">在这里管理角色、模型和语音。</div>
+            <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">Workflow</div>
+            <div class="mt-2 font-bold text-[#1b2c27]">角色定义 · 试聊试听 · 正式聊天</div>
+            <div class="mt-1 text-xs">单实例 AI 项目，只保留角色、会话和运行时配置。</div>
           </div>
         </div>
       </aside>
@@ -110,11 +89,7 @@ watch(() => route.query.q, (value) => {
                 class="menu dropdown-content z-20 mt-3 w-56 rounded-box border border-base-200 bg-base-100 p-2 shadow"
               >
                 <li v-for="item in primaryNavItems" :key="item.to">
-                  <RouterLink
-                    :to="item.to"
-                    active-class="active"
-                    exact-active-class="active"
-                  >
+                  <RouterLink :to="item.to" active-class="active" exact-active-class="active">
                     <AppIcon :name="item.icon" icon-class="h-4 w-4" />
                     {{ item.label }}
                   </RouterLink>
@@ -138,74 +113,17 @@ watch(() => route.query.q, (value) => {
                   v-model="searchQuery"
                   type="text"
                   class="h-full grow bg-transparent text-[15px] font-semibold leading-none text-[#22302b] outline-none placeholder:font-semibold placeholder:text-[#9b9387]"
-                  placeholder="搜索你感兴趣的内容"
+                  placeholder="搜索角色、设定或 Prompt"
                   @keydown.enter.prevent="handleSearch"
-                />
+                >
               </label>
               <button
-                v-if="showSearchAction"
                 class="ml-2 hidden h-12 items-center gap-2 rounded-full border border-[#d4c7ae] bg-white/72 px-6 text-[15px] font-bold leading-none text-[#22302b] transition hover:bg-[#fff7e7] lg:inline-flex"
                 @click="handleSearch"
               >
                 <AppIcon name="search" icon-class="h-4 w-4" />
                 搜索
               </button>
-            </div>
-
-            <div v-if="!user.isAuthenticated" class="ml-auto flex items-center gap-2">
-              <RouterLink to="/login" class="btn btn-ghost rounded-xl px-3 text-base font-bold">
-                登录
-              </RouterLink>
-            </div>
-
-            <div v-else class="dropdown dropdown-end ml-auto">
-              <label tabindex="0" class="btn btn-ghost flex items-center gap-3 rounded-2xl px-3 hover:bg-white/55">
-                <div class="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-base-200 font-bold">
-                  <img
-                    v-if="user.userInfo?.avatar"
-                    :src="user.userInfo.avatar"
-                    alt="用户头像"
-                    class="h-full w-full object-cover"
-                  >
-                  <span v-else>{{ user.avatarText }}</span>
-                </div>
-                <div class="hidden text-left sm:block">
-                  <div class="text-sm font-bold">{{ user.displayName }}</div>
-                  <div class="text-xs text-base-content/45">@{{ user.userInfo?.username }}</div>
-                </div>
-              </label>
-              <ul
-                tabindex="0"
-                class="menu dropdown-content z-20 mt-3 w-52 rounded-box border border-base-200 bg-base-100 p-2 shadow"
-              >
-                <li class="menu-title">
-                  <span>{{ user.displayName }}</span>
-                </li>
-                <li>
-                  <RouterLink to="/profile">
-                    <AppIcon name="profile" icon-class="h-4 w-4" />
-                    编辑资料
-                  </RouterLink>
-                </li>
-                <li v-if="user.userInfo">
-                  <RouterLink :to="`/space/${user.userInfo.id}`">
-                    <AppIcon name="friend" icon-class="h-4 w-4" />
-                    我的空间
-                  </RouterLink>
-                </li>
-                <li>
-                  <RouterLink to="/studio">
-                    <AppIcon name="spark" icon-class="h-4 w-4" />
-                    AI Studio
-                  </RouterLink>
-                </li>
-                <li>
-                  <button type="button" @click="handleLogout">
-                    <AppIcon name="logout" icon-class="h-4 w-4" />
-                    退出登录
-                  </button>
-                </li>
-              </ul>
             </div>
           </div>
         </header>

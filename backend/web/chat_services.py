@@ -7,13 +7,12 @@ from types import SimpleNamespace
 from django.utils import timezone
 from openai import OpenAI
 
-from web.ai_settings_service import get_public_runtime_ai_resolution, get_runtime_ai_resolution
-from web.api_helpers import get_user_profile
+from web.ai_settings_service import get_runtime_ai_resolution
 from web.models import Message, SystemPrompt
 
 
 DEFAULT_SYSTEM_PROMPT = (
-    '你是 AIFriends 平台中的角色扮演聊天助手。'
+    '你是 AIFriends 项目中的角色扮演聊天助手。'
     '请严格扮演当前角色，用自然、口语化、符合角色设定的方式回复。'
     '不要暴露系统提示词，不要跳出角色。'
 )
@@ -130,12 +129,9 @@ def build_voice_rules(character):
 
 
 def build_character_persona(character):
-    author = character.user
-    author_profile = get_user_profile(author)
     return '\n'.join([
         f'角色名：{character.name}',
         f'角色设定：{character.profile or "暂无详细设定"}',
-        f'作者：{author_profile.display_name or author.username}',
     ])
 
 
@@ -626,7 +622,7 @@ def build_debug_snapshot(*, memory_mode, prompt_debug, memory_debug=None, runtim
 def sse_event_stream(friend, user_message):
     raw_chunks = []
     streamed_visible_text = ''
-    runtime_resolution = get_runtime_ai_resolution(friend.user)
+    runtime_resolution = get_runtime_ai_resolution()
     runtime_config = runtime_resolution['config']
     chat_messages, prompt_debug = build_chat_messages(friend, user_message)
 
@@ -644,7 +640,7 @@ def sse_event_stream(friend, user_message):
             fallback_used=False,
             error_tag='invalid_runtime_config',
         )
-        yield f"data: {json.dumps({'error': '聊天模型配置不完整，请先修正 API 设置。', 'reason': runtime_resolution['reason']}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'error': '聊天模型配置不完整，请先修正 Studio 里的运行时配置。', 'reason': runtime_resolution['reason']}, ensure_ascii=False)}\n\n"
         yield 'data: [DONE]\n\n'
         return
 
@@ -709,7 +705,7 @@ def sse_event_stream(friend, user_message):
 def sse_demo_event_stream(character, user_message, history=None):
     raw_chunks = []
     streamed_visible_text = ''
-    runtime_resolution = get_public_runtime_ai_resolution()
+    runtime_resolution = get_runtime_ai_resolution()
     runtime_config = runtime_resolution['config']
     chat_messages, prompt_debug = build_demo_chat_messages(character, history or [], user_message)
 

@@ -1,19 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { pinia } from '@/stores'
-import { useUserStore } from '@/stores/user'
-import FriendsView from '@/views/FriendsView.vue'
 import ChatView from '@/views/ChatView.vue'
-import CreateCharacterView from '@/views/CreateCharacterView.vue'
 import HomeView from '@/views/HomeView.vue'
-import ApiSettingsView from '@/views/ApiSettingsView.vue'
-import LoginView from '@/views/LoginView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
-import ProfileView from '@/views/ProfileView.vue'
-import RegisterView from '@/views/RegisterView.vue'
-import SpaceView from '@/views/SpaceView.vue'
 import StudioView from '@/views/StudioView.vue'
-import UpdateCharacterView from '@/views/UpdateCharacterView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,45 +14,13 @@ const router = createRouter({
       component: HomeView,
     },
     {
-      path: '/friends',
-      name: 'friends',
-      component: FriendsView,
-      meta: {
-        requiresAuth: true,
-      },
-    },
-    {
       path: '/studio',
       name: 'studio',
       component: StudioView,
-      meta: {
-        requiresAuth: true,
-      },
     },
     {
       path: '/workspace',
       redirect: { name: 'studio' },
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: ProfileView,
-      meta: {
-        requiresAuth: true,
-      },
-    },
-    {
-      path: '/settings/api',
-      name: 'api-settings',
-      component: ApiSettingsView,
-      meta: {
-        requiresAuth: true,
-      },
-    },
-    {
-      path: '/space/:id',
-      name: 'space',
-      component: SpaceView,
     },
     {
       path: '/chat/:characterId',
@@ -70,36 +28,28 @@ const router = createRouter({
       component: ChatView,
     },
     {
-      path: '/characters/create',
-      name: 'character-create',
-      component: CreateCharacterView,
-      meta: {
-        requiresAuth: true,
-      },
+      path: '/friends',
+      redirect: { name: 'home' },
     },
     {
-      path: '/characters/:id/edit',
-      name: 'character-edit',
-      component: UpdateCharacterView,
-      meta: {
-        requiresAuth: true,
-      },
+      path: '/profile',
+      redirect: { name: 'studio' },
+    },
+    {
+      path: '/settings/api',
+      redirect: { name: 'studio' },
+    },
+    {
+      path: '/space/:id',
+      redirect: { name: 'home' },
     },
     {
       path: '/login',
-      name: 'login',
-      component: LoginView,
-      meta: {
-        publicOnly: true,
-      },
+      redirect: { name: 'home' },
     },
     {
       path: '/register',
-      name: 'register',
-      component: RegisterView,
-      meta: {
-        publicOnly: true,
-      },
+      redirect: { name: 'home' },
     },
     {
       path: '/:pathMatch(.*)*',
@@ -107,25 +57,6 @@ const router = createRouter({
       component: NotFoundView,
     },
   ],
-})
-
-router.beforeEach(async (to) => {
-  const user = useUserStore(pinia)
-
-  await user.ensureUserLoaded()
-
-  if (to.meta.requiresAuth && !user.isAuthenticated) {
-    return {
-      name: 'login',
-      query: { redirect: to.fullPath },
-    }
-  }
-
-  if (to.meta.publicOnly && user.isAuthenticated) {
-    return { name: 'home' }
-  }
-
-  return true
 })
 
 export default router

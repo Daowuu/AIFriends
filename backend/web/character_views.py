@@ -2,16 +2,21 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from web.api_helpers import serialize_character, serialize_character_list, serialize_voice
+from web.local_runtime import get_or_create_local_operator_user
 from web.media_utils import remove_stored_file, replace_stored_file
 from web.models import Character, Voice
 
 
-def _get_owned_character(user, character_id):
-    return get_object_or_404(Character.objects.select_related('voice', 'user', 'user__profile'), pk=character_id, user=user)
+def _get_owned_character(character_id):
+    return get_object_or_404(
+        Character.objects.select_related('voice', 'user'),
+        pk=character_id,
+        user=get_or_create_local_operator_user(),
+    )
 
 
 def _normalize_name(raw_name):
@@ -30,22 +35,21 @@ def _valid_choice(value, choices, default):
     return normalized if normalized in valid_values else default
 
 
-def _get_available_voices(user):
-    return Voice.objects.filter(
-        is_active=True,
-    ).filter(
-        Q(source='system') | Q(owner=user),
+def _get_available_voices():
+    local_user = get_or_create_local_operator_user()
+    return Voice.objects.filter(is_active=True).filter(
+        Q(source='system') | Q(owner=local_user),
     ).order_by('source', 'name', 'id')
 
 
-def _get_owned_custom_voice(user, voice_id):
+def _get_owned_custom_voice(voice_id):
     return get_object_or_404(
-        Voice.objects.filter(owner=user, source='custom'),
+        Voice.objects.filter(owner=get_or_create_local_operator_user(), source='custom'),
         pk=voice_id,
     )
 
 
-def _resolve_voice(user, raw_voice_id):
+def _resolve_voice(raw_voice_id):
     value = str(raw_voice_id or '').strip()
     if not value:
         return None
@@ -55,10 +59,10 @@ def _resolve_voice(user, raw_voice_id):
     except (TypeError, ValueError):
         raise ValueError('音色参数格式不正确。')
 
-    return get_object_or_404(_get_available_voices(user), pk=voice_id)
+    return get_object_or_404(_get_available_voices(), pk=voice_id)
 
 
-def _resolve_custom_voice(user, payload):
+def _resolve_custom_voice(payload):
     custom_voice_code = str(payload.get('custom_voice_code', '') or '').strip()
     if not custom_voice_code:
         return None
@@ -68,7 +72,7 @@ def _resolve_custom_voice(user, payload):
     custom_voice_description = str(payload.get('custom_voice_description', '') or '').strip()
 
     voice, _ = Voice.objects.update_or_create(
-        owner=user,
+        owner=get_or_create_local_operator_user(),
         voice_code=custom_voice_code,
         defaults={
             'name': custom_voice_name,
@@ -140,16 +144,16 @@ def _resolve_character_ai_config(payload, *, character=None):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def list_character_voices_view(request):
-    voices = _get_available_voices(request.user)
+    voices = _get_available_voices()
     return Response({
-        'voices': [serialize_voice(voice, viewer=request.user) for voice in voices],
+        'voices': [serialize_voice(voice) for voice in voices],
     }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def save_character_voice_view(request):
     raw_voice_id = str(request.data.get('voice_id', '') or '').strip()
 
@@ -164,7 +168,7 @@ def save_character_voice_view(request):
         except (TypeError, ValueError):
             return Response({'detail': '音色参数格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
 
-        voice = _get_owned_custom_voice(request.user, voice_id)
+        voice = _get_owned_custom_voice(voice_id)
         conflict = Voice.objects.filter(voice_code=payload['voice_code']).exclude(pk=voice.pk).first()
         if conflict:
             return Response({'detail': '这个音色 ID 已存在，不能重复保存。'}, status=status.HTTP_400_BAD_REQUEST)
@@ -177,7 +181,7 @@ def save_character_voice_view(request):
         voice.save()
     else:
         voice, _ = Voice.objects.update_or_create(
-            owner=request.user,
+            owner=get_or_create_local_operator_user(),
             voice_code=payload['voice_code'],
             defaults={
                 'name': payload['name'],
@@ -191,32 +195,32 @@ def save_character_voice_view(request):
         )
 
     return Response({
-        'voice': serialize_voice(voice, viewer=request.user),
+        'voice': serialize_voice(voice),
         'detail': '自定义音色已保存。',
     }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def remove_character_voice_view(request, voice_id):
-    voice = _get_owned_custom_voice(request.user, voice_id)
-    Character.objects.filter(user=request.user, voice=voice).update(voice=None)
+    voice = _get_owned_custom_voice(voice_id)
+    Character.objects.filter(user=get_or_create_local_operator_user(), voice=voice).update(voice=None)
     voice.delete()
     return Response({'detail': '自定义音色已删除。'}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def list_characters_view(request):
-    characters = Character.objects.filter(user=request.user).select_related('voice', 'user', 'user__profile')
+    characters = Character.objects.filter(user=get_or_create_local_operator_user()).select_related('voice')
     return Response(
-        {'characters': serialize_character_list(characters, viewer=request.user)},
+        {'characters': serialize_character_list(characters)},
         status=status.HTTP_200_OK,
     )
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def create_character_view(request):
     name = _normalize_name(request.data.get('name', ''))
     profile = str(request.data.get('profile', '') or '').strip()
@@ -228,14 +232,14 @@ def create_character_view(request):
         return Response({'detail': '角色名不能为空。'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        voice = _resolve_custom_voice(request.user, request.data) or _resolve_voice(request.user, request.data.get('voice_id', ''))
+        voice = _resolve_custom_voice(request.data) or _resolve_voice(request.data.get('voice_id', ''))
     except ValueError as error:
         return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
     ai_config = _resolve_character_ai_config(request.data)
 
     character = Character.objects.create(
-        user=request.user,
+        user=get_or_create_local_operator_user(),
         name=name,
         profile=profile,
         custom_prompt=custom_prompt,
@@ -245,20 +249,20 @@ def create_character_view(request):
         **ai_config,
     )
 
-    return Response({'character': serialize_character(character, viewer=request.user)}, status=status.HTTP_201_CREATED)
+    return Response({'character': serialize_character(character)}, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_single_character_view(request, character_id):
-    character = _get_owned_character(request.user, character_id)
-    return Response({'character': serialize_character(character, viewer=request.user)}, status=status.HTTP_200_OK)
+    character = _get_owned_character(character_id)
+    return Response({'character': serialize_character(character)}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def update_character_view(request, character_id):
-    character = _get_owned_character(request.user, character_id)
+    character = _get_owned_character(character_id)
 
     name = _normalize_name(request.data.get('name', character.name))
     profile = str(request.data.get('profile', character.profile) or '').strip()
@@ -272,7 +276,7 @@ def update_character_view(request, character_id):
         return Response({'detail': '角色名不能为空。'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        voice = _resolve_custom_voice(request.user, request.data) or _resolve_voice(request.user, request.data.get('voice_id', character.voice_id or ''))
+        voice = _resolve_custom_voice(request.data) or _resolve_voice(request.data.get('voice_id', character.voice_id or ''))
     except ValueError as error:
         return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -305,13 +309,13 @@ def update_character_view(request, character_id):
 
     character.save()
 
-    return Response({'character': serialize_character(character, viewer=request.user)}, status=status.HTTP_200_OK)
+    return Response({'character': serialize_character(character)}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def remove_character_view(request, character_id):
-    character = _get_owned_character(request.user, character_id)
+    character = _get_owned_character(character_id)
     remove_stored_file(character.photo)
     remove_stored_file(character.background_image)
     character.delete()

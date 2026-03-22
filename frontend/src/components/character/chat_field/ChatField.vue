@@ -12,12 +12,8 @@ import InputField from './input_field/InputField.vue'
 const props = withDefaults(defineProps<{
   character: Character | null
   pending?: boolean
-  canManageFriend?: boolean
-  demoEnabled?: boolean
 }>(), {
   pending: false,
-  canManageFriend: false,
-  demoEnabled: false,
 })
 
 const messages = ref<ChatMessage[]>([])
@@ -42,7 +38,7 @@ let activeAudio: HTMLAudioElement | null = null
 let activeAudioUrl = ''
 
 const EMOJI_PRESENTATION_REGEX = /[\p{Extended_Pictographic}\uFE0F]/gu
-const EMOTICON_TOKEN_REGEX = /(\^[_-]?\^|T[_-]?T|QAQ|QAQ|qwq|QwQ|owo|OwO|uwu|UwU|XD|xD|哈哈哈+|呵呵呵+|[><][._-]?[<>()]|:\)|:-\)|:\(|:-\(|:D|:-D|;\)|;-\)|:\||:-\||\/::\)|\/::~|\/:B-|\/:8-\)|\/:<|\/:>|\/:\||\/:@|\/:P|\/:D|\/:\$|\/:X|\/:Z|\/:'\(|\/:Q|<3)+/gi
+const EMOTICON_TOKEN_REGEX = /(\^[_-]?\^|T[_-]?T|QAQ|qwq|QwQ|owo|OwO|uwu|UwU|XD|xD|哈哈哈+|呵呵呵+|[><][._-]?[<>()]|:\)|:-\)|:\(|:-\(|:D|:-D|;\)|;-\)|:\||:-\||\/::\)|\/::~|\/:B-|\/:8-\)|\/:<|\/:>|\/:\||\/:@|\/:P|\/:D|\/:\$|\/:X|\/:Z|\/:'\(|\/:Q|<3)+/gi
 const BRACKET_EMOTE_REGEX = /[\[({（【]\s*(?:捂脸|偷笑|流汗|害羞|大笑|微笑|难过|委屈|尴尬|赞|鼓掌|哭笑|doge|笑哭|疑问|惊讶|发呆|生气|叹气|无语|撇嘴|呲牙|色|可爱|亲亲|比心)\s*[\])}）】]/gi
 
 const stopAudioPlayback = () => {
@@ -115,31 +111,16 @@ const playBrowserSpeech = (speechText: string, playbackToken: number) => {
 }
 
 const playBackendSpeech = async (speechText: string, playbackToken: number) => {
-  if (!props.character?.id) {
-    throw new Error('当前聊天会话不存在。')
-  }
+  if (!props.character?.id) throw new Error('当前聊天会话不存在。')
 
   const response = await api.post(
-    props.demoEnabled ? '/demo/tts/' : '/friend/message/tts/',
-    props.demoEnabled
-      ? {
-        character_id: props.character.id,
-        text: speechText,
-      }
-      : {
-        friend_id: props.character.friend_id,
-        text: speechText,
-      },
-    {
-      responseType: 'blob',
-      timeout: 20000,
-    },
+    '/session/tts/',
+    { character_id: props.character.id, text: speechText },
+    { responseType: 'blob', timeout: 20000 },
   )
 
   const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: 'audio/mpeg' })
-  if (!blob.size) {
-    throw new Error('语音合成没有返回有效音频。')
-  }
+  if (!blob.size) throw new Error('语音合成没有返回有效音频。')
 
   activeAudioUrl = URL.createObjectURL(blob)
   const audio = new Audio(activeAudioUrl)
@@ -169,7 +150,6 @@ const playBackendSpeech = async (speechText: string, playbackToken: number) => {
     }
     void inputRef.value?.resumeLiveListening()
   }
-
   await audio.play()
 }
 
@@ -208,19 +188,6 @@ const createUserMessage = (content: string) => {
   return userMessage
 }
 
-const buildDemoHistoryBefore = (userMessageId: string) => {
-  const history: Array<{ role: 'user' | 'assistant'; content: string }> = []
-  for (const item of messages.value) {
-    if (item.id === userMessageId) break
-    if (!item.content.trim()) continue
-    history.push({
-      role: item.role,
-      content: item.content,
-    })
-  }
-  return history
-}
-
 const queueUserMessage = (content: string) => {
   const queuedMessage = createUserMessage(content)
   pendingUserQueue.value = [...pendingUserQueue.value, queuedMessage]
@@ -243,15 +210,9 @@ const stopCurrentReply = ({ clearError = false, continueQueue = true } = {}) => 
   activeAssistantMessageId = null
   sendingMessage.value = false
 
-  if (clearError) {
-    chatError.value = ''
-  }
-
-  if (interruptedSpeechPlayback) {
-    void inputRef.value?.resumeLiveListening()
-  }
-
-  if (continueQueue && pendingUserQueue.value.length && (props.character?.friend_id || props.demoEnabled)) {
+  if (clearError) chatError.value = ''
+  if (interruptedSpeechPlayback) void inputRef.value?.resumeLiveListening()
+  if (continueQueue && pendingUserQueue.value.length && props.character?.id) {
     void processNextQueuedMessage()
   }
 }
@@ -262,29 +223,25 @@ const loadHistory = async ({ reset = false } = {}) => {
   if (reset) {
     messages.value = []
     historyOffset.value = 0
-    hasMoreHistory.value = !props.demoEnabled
+    hasMoreHistory.value = true
     chatError.value = ''
   }
 
-  if (props.demoEnabled) return
-  if (!props.character?.friend_id) return
+  if (!props.character?.id) return
   if (!hasMoreHistory.value && !reset) return
 
   const shouldPreserveScroll = !reset && messages.value.length > 0
-  if (shouldPreserveScroll) {
-    chatHistoryRef.value?.captureScrollSnapshot()
-  }
+  if (shouldPreserveScroll) chatHistoryRef.value?.captureScrollSnapshot()
 
   loadingHistory.value = true
-
   try {
     const response = await api.get<{
       messages: Array<{ id: number; role: 'user' | 'assistant'; content: string; created_at: string }>
       next_offset: number
       has_more: boolean
-    }>('/friend/message/history/', {
+    }>('/session/history/', {
       params: {
-        friend_id: props.character.friend_id,
+        character_id: props.character.id,
         offset: historyOffset.value,
         limit: 20,
       },
@@ -310,17 +267,15 @@ const loadHistory = async ({ reset = false } = {}) => {
   }
 }
 
-watch(() => [props.character?.id, props.character?.friend_id, props.demoEnabled] as const, async ([characterId, friendId, demoEnabled]) => {
-  if (!characterId || (!friendId && !demoEnabled)) {
+watch(() => props.character?.id, async (characterId) => {
+  if (!characterId) {
     stopCurrentReply({ clearError: true, continueQueue: false })
-    if (!characterId || (!friendId && !demoEnabled)) {
-      messages.value = []
-      historyOffset.value = 0
-      hasMoreHistory.value = !demoEnabled
-      chatError.value = ''
-      pendingUserQueue.value = []
-      inputResetToken.value += 1
-    }
+    messages.value = []
+    historyOffset.value = 0
+    hasMoreHistory.value = true
+    chatError.value = ''
+    pendingUserQueue.value = []
+    inputResetToken.value += 1
     return
   }
 
@@ -335,22 +290,12 @@ onBeforeUnmount(() => {
   stopCurrentReply({ clearError: true, continueQueue: false })
 })
 
-const chatEnabled = computed(() => Boolean(props.character?.friend_id || (props.demoEnabled && props.character?.id)))
-const inputPlaceholder = computed(() => {
-  if (props.demoEnabled) return '输入一句话，或切到语音开始试玩。'
-  if (chatEnabled.value) return '输入一句话，按 Enter 发送。'
-  if (!props.canManageFriend) return '登录后开始聊天。'
-  return '正在准备聊天会话，请稍等。'
-})
-const inputDisabledReason = computed(() => {
-  if (props.demoEnabled) return ''
-  if (chatEnabled.value) return ''
-  if (!props.canManageFriend) return '登录后才能开始文字和语音对话。'
-  return '当前聊天会话还没准备好，请稍等或点击顶部按钮重新开始。'
-})
+const chatEnabled = computed(() => Boolean(props.character?.id))
+const inputPlaceholder = computed(() => chatEnabled.value ? '输入一句话，按 Enter 发送。' : '请先选择一个角色。')
+const inputDisabledReason = computed(() => chatEnabled.value ? '' : '当前还没有选择角色。')
 
 const processNextQueuedMessage = async () => {
-  if (sendingMessage.value || activeStreamController || !props.character || (!props.character.friend_id && !props.demoEnabled)) return
+  if (sendingMessage.value || activeStreamController || !props.character?.id) return
   const [nextMessage, ...rest] = pendingUserQueue.value
   if (!nextMessage) return
   pendingUserQueue.value = rest
@@ -358,8 +303,7 @@ const processNextQueuedMessage = async () => {
 }
 
 const sendMessageNow = async (message: string, existingUserMessageId?: string, existingCreatedAt?: string) => {
-  if (!props.character || (!props.character.friend_id && !props.demoEnabled)) return
-  if (activeStreamController) return
+  if (!props.character?.id || activeStreamController) return
 
   stopAudioPlayback()
   chatError.value = ''
@@ -383,17 +327,11 @@ const sendMessageNow = async (message: string, existingUserMessageId?: string, e
 
   try {
     await streamApi({
-      url: props.demoEnabled ? '/demo/chat/' : '/friend/message/chat/',
-      body: props.demoEnabled
-        ? {
-          character_id: props.character.id,
-          message,
-          history: buildDemoHistoryBefore(currentUserMessageId),
-        }
-        : {
-          friend_id: props.character.friend_id,
-          message,
-        },
+      url: '/session/chat/',
+      body: {
+        character_id: props.character.id,
+        message,
+      },
       signal: activeStreamController.signal,
       onmessage(json, done) {
         if (json.meta?.history_increment) {
@@ -405,9 +343,7 @@ const sendMessageNow = async (message: string, existingUserMessageId?: string, e
           const errorText = json.error || '聊天失败：未知错误'
           chatError.value = errorText
           messages.value = messages.value.map((item) => (
-            item.id === assistantMessage.id
-              ? { ...item, content: errorText }
-              : item
+            item.id === assistantMessage.id ? { ...item, content: errorText } : item
           ))
           return
         }
@@ -415,9 +351,7 @@ const sendMessageNow = async (message: string, existingUserMessageId?: string, e
         if (done) {
           historyOffset.value += historyIncrement
           const finalMessage = messages.value.find((item) => item.id === assistantMessage.id)
-          if (finalMessage?.content) {
-            void speakReply(finalMessage.content)
-          }
+          if (finalMessage?.content) void speakReply(finalMessage.content)
           activeAssistantMessageId = null
           activeStreamController = null
           void processNextQueuedMessage()
@@ -425,21 +359,15 @@ const sendMessageNow = async (message: string, existingUserMessageId?: string, e
         }
 
         messages.value = messages.value.map((item) => (
-          item.id === assistantMessage.id
-            ? { ...item, content: item.content + (json.content || '') }
-            : item
+          item.id === assistantMessage.id ? { ...item, content: item.content + (json.content || '') } : item
         ))
         void chatHistoryRef.value?.scrollToBottom()
       },
       onerror(error) {
-        if (activeStreamController?.signal.aborted) {
-          return
-        }
+        if (activeStreamController?.signal.aborted) return
         chatError.value = error instanceof Error ? error.message : '未知错误'
         messages.value = messages.value.map((item) => (
-          item.id === assistantMessage.id
-            ? { ...item, content: `聊天失败：${chatError.value}` }
-            : item
+          item.id === assistantMessage.id ? { ...item, content: `聊天失败：${chatError.value}` } : item
         ))
         activeAssistantMessageId = null
         activeStreamController = null
@@ -447,14 +375,12 @@ const sendMessageNow = async (message: string, existingUserMessageId?: string, e
       },
     })
   } finally {
-    if (!activeStreamController?.signal.aborted) {
-      sendingMessage.value = false
-    }
+    if (!activeStreamController?.signal.aborted) sendingMessage.value = false
   }
 }
 
 const handleSend = async (message: string) => {
-  if (!props.character || (!props.character.friend_id && !props.demoEnabled)) return
+  if (!props.character?.id) return
 
   if (sendingMessage.value || activeStreamController) {
     queueUserMessage(message)
@@ -467,9 +393,7 @@ const handleSend = async (message: string) => {
 </script>
 
 <template>
-  <div
-    class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-visible rounded-[28px] border border-base-200 bg-base-100 shadow-sm"
-  >
+  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-visible rounded-[28px] border border-base-200 bg-base-100 shadow-sm">
     <div class="border-b border-base-200 px-5 py-4 sm:px-6">
       <div class="flex items-center justify-between gap-4">
         <div>
@@ -478,9 +402,7 @@ const handleSend = async (message: string) => {
             {{
               pendingUserQueue.length
                 ? `已有 ${pendingUserQueue.length} 条消息排队等待回复。`
-                : (demoEnabled
-                  ? '当前为游客试玩会话，文字和语音都不会保存长期记忆。'
-                  : (character?.friend_id ? '文字和语音都已就绪。' : '会话尚未建立。'))
+                : '当前会话会持续保存消息与长期记忆。'
             }}
           </div>
         </div>
@@ -514,7 +436,7 @@ const handleSend = async (message: string) => {
             :placeholder="inputPlaceholder"
             :reset-token="inputResetToken"
             :allow-voice-mode="true"
-            :asr-endpoint="demoEnabled ? '/demo/asr/' : '/friend/message/asr/'"
+            asr-endpoint="/session/asr/"
             @send="handleSend"
             @stop="stopCurrentReply"
           />

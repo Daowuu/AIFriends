@@ -25,18 +25,14 @@ def _get_quota_bucket(session):
     return bucket
 
 
-def build_quota_exceeded_response(*, quota_type: str, authenticated: bool):
+def build_quota_exceeded_response(*, quota_type: str):
     if quota_type == 'voice':
         voice_limit = get_voice_chat_limit()
         detail = f'当前会话的语音试玩额度已用完（{voice_limit}/{voice_limit}）。'
     else:
         text_limit = get_text_chat_limit()
         detail = f'当前会话的文本试玩额度已用完（{text_limit}/{text_limit}）。'
-
-    if authenticated:
-        detail += ' 请在 AI Studio 配置个人 API 后继续使用。'
-    else:
-        detail += ' 请先登录，再在 AI Studio 配置个人 API 后继续使用。'
+    detail += ' 请到 Studio 调整运行时配置后继续使用。'
 
     return Response({
         'detail': detail,
@@ -54,6 +50,9 @@ def consume_system_api_quota(request, *, quota_type: str):
     else:
         limit = get_text_chat_limit()
         field = 'text_chat_count'
+
+    if limit <= 0:
+        return True
 
     current = int(bucket.get(field, 0) or 0)
     if current >= limit:

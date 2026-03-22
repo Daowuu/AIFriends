@@ -48,7 +48,7 @@ const coverImage = computed(() => props.character.background_image || props.char
     <button type="button" class="block w-full text-left" @click="emit('open', character)">
       <div
         class="relative bg-base-200"
-        :class="isStudioMode ? 'h-64 bg-[linear-gradient(180deg,rgba(255,249,238,0.96),rgba(248,243,233,0.94))]' : 'h-80 overflow-hidden bg-[linear-gradient(180deg,#fbf4e7,#f7efe1)]'"
+        :class="isStudioMode ? 'h-[clamp(15rem,24vw,18rem)] bg-[linear-gradient(180deg,rgba(255,249,238,0.96),rgba(248,243,233,0.94))]' : 'h-[clamp(18rem,28vw,20rem)] overflow-hidden bg-[linear-gradient(180deg,#fbf4e7,#f7efe1)]'"
       >
         <img
           v-if="coverImage"
@@ -131,7 +131,7 @@ const coverImage = computed(() => props.character.background_image || props.char
 
       <div v-if="!isStudioMode" class="mb-4 flex items-start gap-4">
         <div
-          class="h-20 w-20 shrink-0 overflow-hidden rounded-[24px] border-[3px] border-[#fffaf1] bg-white shadow-[0_14px_28px_rgba(15,23,42,0.12)] ring-1 ring-black/5"
+          class="h-[clamp(4.5rem,7vw,5rem)] w-[clamp(4.5rem,7vw,5rem)] shrink-0 overflow-hidden rounded-[24px] border-[3px] border-[#fffaf1] bg-white shadow-[0_14px_28px_rgba(15,23,42,0.12)] ring-1 ring-black/5"
         >
           <img
             v-if="character.photo"

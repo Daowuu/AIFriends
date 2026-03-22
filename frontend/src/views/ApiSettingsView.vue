@@ -267,7 +267,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section :class="props.embedded ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8'">
+  <section :class="props.embedded ? '' : 'mx-auto w-[min(95vw,108rem)] px-4 py-8 sm:px-6 lg:px-8'">
     <div
       :class="props.embedded
         ? 'rounded-[32px] border border-base-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95))] p-5 shadow-sm sm:p-6'
@@ -302,7 +302,7 @@ onMounted(() => {
         <span class="loading loading-spinner loading-lg text-primary" />
       </div>
 
-      <div v-else class="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div v-else class="mt-8 grid gap-6 2xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.9fr)]">
         <form class="space-y-6" @submit.prevent>
           <div class="overflow-hidden rounded-[32px] border border-base-200 bg-white shadow-[0_14px_50px_rgba(15,23,42,0.06)]">
             <div class="flex flex-col gap-5 border-b border-base-200/80 px-6 py-6 sm:px-7 lg:flex-row lg:items-start lg:justify-between">
@@ -316,7 +316,7 @@ onMounted(() => {
                 </p>
               </div>
 
-              <div class="grid gap-3 sm:min-w-[230px]">
+              <div class="grid gap-3 sm:min-w-[14rem]">
                 <div class="rounded-[24px] border border-base-200 bg-slate-50 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">聊天 Key</div>
                   <div class="mt-2 font-semibold text-base-content">{{ hasExistingApiKey ? '已保存' : '未保存' }}</div>
@@ -430,7 +430,7 @@ onMounted(() => {
                 </p>
               </div>
 
-              <div class="grid gap-3 sm:min-w-[230px]">
+              <div class="grid gap-3 sm:min-w-[14rem]">
                 <div class="rounded-[24px] border border-base-200 bg-amber-50/60 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">语音 Key</div>
                   <div class="mt-2 font-semibold text-base-content">{{ hasExistingAsrApiKey ? '已保存' : '未保存' }}</div>

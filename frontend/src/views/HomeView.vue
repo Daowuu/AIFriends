@@ -112,10 +112,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="mx-auto max-w-[1280px] p-6">
-    <div class="mb-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+  <section class="mx-auto w-[min(95vw,96rem)] px-4 py-6 sm:px-6 xl:px-8">
+    <div class="mb-8 grid gap-6 2xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.72fr)]">
       <div class="overflow-hidden rounded-[34px] border border-base-200 bg-base-100 shadow-sm">
-        <div class="grid gap-6 p-7 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+        <div class="grid gap-6 p-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(14rem,0.75fr)] xl:items-center">
           <div>
             <div class="inline-flex items-center rounded-full bg-base-200 px-3 py-1 text-xs font-black tracking-[0.22em] text-base-content/60">
               ROLE LIBRARY
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
 
       <div
         v-else
-        class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-7 justify-items-stretch"
+        class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-6 xl:gap-7"
       >
         <CharacterCard
           v-for="character in characters"

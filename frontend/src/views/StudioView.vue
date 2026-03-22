@@ -476,7 +476,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 xl:px-8">
+  <section class="mx-auto w-[min(95vw,108rem)] px-4 py-6 sm:px-6 xl:px-8">
     <div class="rounded-[34px] border border-[#ded4c3] bg-[linear-gradient(135deg,rgba(255,251,243,0.95),rgba(247,243,234,0.92))] p-6 shadow-[0_30px_90px_-42px_rgba(15,23,42,0.24)]">
       <div class="flex flex-col gap-4 border-b border-[#e6ddcd] pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -516,7 +516,7 @@ onMounted(() => {
                     v-for="character in filteredCharacters"
                     :key="character.id"
                     type="button"
-                    class="flex min-w-[200px] items-center gap-3 rounded-[22px] border px-4 py-3 text-left transition"
+                    class="flex min-w-[11rem] items-center gap-3 rounded-[22px] border px-4 py-3 text-left transition sm:min-w-[12rem] xl:min-w-[13rem]"
                     :class="selectedCharacterId === character.id ? 'border-[#16231f] bg-[#16231f] text-[#f7f1e5]' : 'border-[#d9cfbe] bg-white text-[#22302b] hover:bg-[#fff7e8]'"
                     @click="selectCharacter(character)"
                   >
@@ -532,7 +532,7 @@ onMounted(() => {
 
                   <button
                     type="button"
-                    class="flex min-w-[200px] items-center gap-3 rounded-[22px] border border-dashed border-[#ccbfa8] bg-[#fbf5e8] px-4 py-3 text-left text-[#5f543f] transition hover:bg-[#fff7e8]"
+                    class="flex min-w-[11rem] items-center gap-3 rounded-[22px] border border-dashed border-[#ccbfa8] bg-[#fbf5e8] px-4 py-3 text-left text-[#5f543f] transition hover:bg-[#fff7e8] sm:min-w-[12rem] xl:min-w-[13rem]"
                     @click="startCreateMode"
                   >
                     <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xl font-black">+</span>
@@ -600,7 +600,7 @@ onMounted(() => {
           </div>
 
           <div v-show="workspacePanel === 'diagnostics'" class="space-y-6">
-            <div class="grid gap-6 xl:grid-cols-2">
+            <div class="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <section class="rounded-[32px] border border-[#ded4c3] bg-white/78 p-6 shadow-sm">
                 <div class="border-b border-[#e6ddcd] pb-4">
                   <h2 class="text-2xl font-black text-[#15231f]">试聊</h2>
@@ -692,7 +692,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-show="workspacePanel === 'overview'" class="grid gap-4 xl:grid-cols-2">
+          <div v-show="workspacePanel === 'overview'" class="grid gap-5 2xl:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
             <CharacterCard
               v-if="currentCharacter"
               :character="currentCharacter"

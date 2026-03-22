@@ -161,6 +161,8 @@ class WerewolfSeat(models.Model):
     IDENTITY_CHOICES = (
         ('wolf', 'wolf'),
         ('seer', 'seer'),
+        ('witch', 'witch'),
+        ('hunter', 'hunter'),
         ('villager', 'villager'),
     )
 

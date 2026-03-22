@@ -12,15 +12,29 @@ export type AISettings = {
   api_base: string
   model_name: string
   has_api_key: boolean
+  masked_api_key: string
   resolved_api_base: string
   resolved_model_name: string
   asr_enabled: boolean
   asr_api_base: string
   asr_model_name: string
   has_asr_api_key: boolean
+  masked_asr_api_key: string
   resolved_asr_api_base: string
   resolved_asr_model_name: string
   tts_model_name: string
+  updated_at: string
+  source: 'runtime_env'
+}
+
+export type AIRuntimeChatProviderSummary = {
+  provider: AIProviderOption['value']
+  provider_label: string
+  api_base: string
+  model_name: string
+  has_api_key: boolean
+  masked_api_key: string
+  is_active: boolean
   updated_at: string
 }
 

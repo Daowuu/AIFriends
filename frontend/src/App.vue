@@ -10,7 +10,7 @@ const searchQuery = ref('')
 
 const primaryNavItems = [
   { to: '/', label: '首页', icon: 'home' },
-  { to: '/werewolf', label: '狼人杀', icon: 'game' },
+  { to: '/discussion', label: '讨论组', icon: 'game' },
   { to: '/studio', label: 'Studio', icon: 'create' },
 ] as const
 

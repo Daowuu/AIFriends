@@ -2,7 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 
 import api from '@/api/http'
-import type { AIProviderOption, AISettings, AIRuntimeSummary } from '@/types/ai-settings'
+import type {
+  AIProviderOption,
+  AIRuntimeChatProviderSummary,
+  AISettings,
+  AIRuntimeSummary,
+} from '@/types/ai-settings'
 
 const props = withDefaults(defineProps<{
   embedded?: boolean
@@ -24,23 +29,31 @@ const testErrorMessage = ref('')
 const testAsrMessage = ref('')
 const testAsrErrorMessage = ref('')
 
-const provider = ref<AIProviderOption['value']>('aliyun')
-const lastProvider = ref<AIProviderOption['value']>('aliyun')
+const provider = ref<AIProviderOption['value']>('openai')
+const lastProvider = ref<AIProviderOption['value']>('openai')
 const apiBase = ref('')
 const modelName = ref('')
 const apiKey = ref('')
 const hasExistingApiKey = ref(false)
+const maskedApiKey = ref('')
 const asrApiBase = ref('')
 const asrModelName = ref('')
 const ttsModelName = ref('')
 const asrApiKey = ref('')
 const hasExistingAsrApiKey = ref(false)
-const updatedAt = ref('')
+const maskedAsrApiKey = ref('')
 const providerOptions = ref<AIProviderOption[]>([])
 const runtimeSummary = ref<AIRuntimeSummary | null>(null)
+const chatProviders = ref<AIRuntimeChatProviderSummary[]>([])
 
 const selectedProvider = computed(() => (
   providerOptions.value.find((item) => item.value === provider.value) || providerOptions.value[0]
+))
+const busy = computed(() => (
+  chatSavePending.value
+  || asrSavePending.value
+  || testPending.value
+  || testAsrPending.value
 ))
 
 const resolvedApiBasePreview = computed(() => apiBase.value.trim() || selectedProvider.value?.default_api_base || '')
@@ -55,13 +68,28 @@ const applySettings = (settings: AISettings) => {
   apiBase.value = settings.api_base
   modelName.value = settings.model_name
   hasExistingApiKey.value = settings.has_api_key
+  maskedApiKey.value = settings.masked_api_key
   apiKey.value = ''
   asrApiBase.value = settings.asr_api_base
   asrModelName.value = settings.asr_model_name
   ttsModelName.value = settings.tts_model_name
   hasExistingAsrApiKey.value = settings.has_asr_api_key
+  maskedAsrApiKey.value = settings.masked_asr_api_key
   asrApiKey.value = ''
-  updatedAt.value = settings.updated_at
+}
+
+type SettingsResponse = {
+  settings: AISettings
+  chat_providers: AIRuntimeChatProviderSummary[]
+  providers: AIProviderOption[]
+  runtime_summary: AIRuntimeSummary
+}
+
+const applyResponse = (payload: SettingsResponse) => {
+  providerOptions.value = payload.providers
+  applySettings(payload.settings)
+  chatProviders.value = payload.chat_providers
+  runtimeSummary.value = payload.runtime_summary
 }
 
 const loadSettings = async () => {
@@ -70,15 +98,8 @@ const loadSettings = async () => {
   asrErrorMessage.value = ''
 
   try {
-    const response = await api.get<{
-      settings: AISettings
-      providers: AIProviderOption[]
-      runtime_summary: AIRuntimeSummary
-    }>('/runtime/settings/')
-
-    providerOptions.value = response.data.providers
-    applySettings(response.data.settings)
-    runtimeSummary.value = response.data.runtime_summary
+    const response = await api.get<SettingsResponse>('/runtime/settings/')
+    applyResponse(response.data)
   } catch (error: unknown) {
     const message = '加载 API 设置失败，请稍后重试。'
     chatErrorMessage.value = message
@@ -113,6 +134,19 @@ const resetAsrFeedback = () => {
 const handleProviderChange = () => {
   const previousProvider = providerOptions.value.find((item) => item.value === lastProvider.value)
   const nextProvider = providerOptions.value.find((item) => item.value === provider.value)
+  const nextProviderSummary = chatProviders.value.find((item) => item.provider === provider.value)
+
+  if (nextProviderSummary) {
+    apiBase.value = nextProviderSummary.api_base || nextProvider?.default_api_base || ''
+    modelName.value = nextProviderSummary.model_name || nextProvider?.default_model_name || ''
+    hasExistingApiKey.value = nextProviderSummary.has_api_key
+    maskedApiKey.value = nextProviderSummary.masked_api_key
+    apiKey.value = ''
+    lastProvider.value = provider.value
+    resetChatFeedback()
+    resetAsrFeedback()
+    return
+  }
 
   if (nextProvider) {
     const previousDefaultApiBase = previousProvider?.default_api_base || ''
@@ -127,6 +161,9 @@ const handleProviderChange = () => {
     }
   }
 
+  hasExistingApiKey.value = false
+  maskedApiKey.value = ''
+  apiKey.value = ''
   lastProvider.value = provider.value
   resetChatFeedback()
   resetAsrFeedback()
@@ -137,20 +174,14 @@ const handleSaveChatConfig = async () => {
   resetChatFeedback()
 
   try {
-    const response = await api.post<{
-      settings: AISettings
-      providers: AIProviderOption[]
-      runtime_summary: AIRuntimeSummary
-    }>('/runtime/settings/', {
+    const response = await api.post<SettingsResponse>('/runtime/settings/', {
       provider: provider.value,
       api_base: apiBase.value.trim(),
       model_name: modelName.value.trim(),
       api_key: apiKey.value.trim(),
     })
 
-    providerOptions.value = response.data.providers
-    applySettings(response.data.settings)
-    runtimeSummary.value = response.data.runtime_summary
+    applyResponse(response.data)
     chatSuccessMessage.value = '聊天配置已保存。'
   } catch (error: unknown) {
     chatErrorMessage.value = '聊天配置保存失败，请稍后重试。'
@@ -170,20 +201,14 @@ const handleSaveAsrConfig = async () => {
   resetAsrFeedback()
 
   try {
-    const response = await api.post<{
-      settings: AISettings
-      providers: AIProviderOption[]
-      runtime_summary: AIRuntimeSummary
-    }>('/runtime/settings/', {
+    const response = await api.post<SettingsResponse>('/runtime/settings/', {
       asr_api_base: asrApiBase.value.trim(),
       asr_model_name: asrModelName.value.trim(),
       tts_model_name: ttsModelName.value.trim(),
       asr_api_key: asrApiKey.value.trim(),
     })
 
-    providerOptions.value = response.data.providers
-    applySettings(response.data.settings)
-    runtimeSummary.value = response.data.runtime_summary
+    applyResponse(response.data)
     asrSuccessMessage.value = '语音配置已保存。'
   } catch (error: unknown) {
     asrErrorMessage.value = '语音配置保存失败，请稍后重试。'
@@ -289,7 +314,7 @@ onMounted(() => {
           <div class="text-xs font-black uppercase tracking-[0.28em] text-sky-600">Runtime Config</div>
           <h1 class="mt-3 text-3xl font-black tracking-tight text-base-content sm:text-4xl">运行时配置</h1>
           <p class="mt-3 text-sm leading-7 text-base-content/65 sm:text-[15px]">
-            这里统一管理 Studio 与 `backend/.env` 同步的聊天、ASR 和语音播报配置。你在这里保存的内容，就是当前实例真实生效的运行时配置。
+            这里统一管理聊天、ASR 和语音播报配置。页面直接编辑 `backend/.env` 里的 `AI_RUNTIME_CONFIG_JSON`；如果你维护多套聊天提供方，只需要切换 `active.chat_provider`。
           </p>
         </div>
 
@@ -330,12 +355,14 @@ onMounted(() => {
               <div class="grid gap-3 sm:min-w-[14rem]">
                 <div class="rounded-[24px] border border-base-200 bg-slate-50 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">聊天 Key</div>
-                  <div class="mt-2 font-semibold text-base-content">{{ hasExistingApiKey ? '已保存' : '未保存' }}</div>
+                  <div class="mt-2 font-semibold text-base-content">
+                    {{ hasExistingApiKey ? maskedApiKey : '未保存' }}
+                  </div>
                 </div>
                 <div class="rounded-[24px] border border-base-200 bg-slate-50 px-4 py-3 text-sm shadow-sm">
-                  <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">更新时间</div>
+                  <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">当前配置</div>
                   <div class="mt-2 font-semibold text-base-content/75">
-                    {{ updatedAt ? new Date(updatedAt).toLocaleString() : '尚未保存' }}
+                    读取 `backend/.env` 当前编辑 provider
                   </div>
                 </div>
               </div>
@@ -393,7 +420,7 @@ onMounted(() => {
                     placeholder="留空表示保持当前已保存的密钥不变"
                   >
                   <span class="mt-2 text-xs leading-6 text-base-content/55">
-                    输入新 key 会覆盖旧值；留空则保持当前已保存的聊天 key。
+                    输入新 key 会覆盖旧值；留空则保持当前已保存的聊天 key。当前保存的是 {{ hasExistingApiKey ? maskedApiKey : '无' }}。
                   </span>
                 </label>
               </div>
@@ -406,13 +433,13 @@ onMounted(() => {
 
             <div class="flex flex-col gap-3 border-t border-base-200/80 bg-slate-50/70 px-6 py-5 sm:px-7 md:flex-row md:items-center md:justify-between">
               <p class="text-sm leading-7 text-base-content/55">
-                先测试聊天链路，再保存；这组按钮只操作聊天配置。
+                先测试聊天链路，再保存；这里更新的是 `.env` 当前 provider 的聊天配置和对应 API Key。
               </p>
               <div class="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
                   class="btn btn-ghost border border-base-300 bg-white"
-                  :disabled="chatSavePending || asrSavePending || testPending || testAsrPending"
+                  :disabled="busy"
                   @click="handleTestConnection"
                 >
                   {{ testPending ? '测试中...' : '测试聊天配置' }}
@@ -420,7 +447,7 @@ onMounted(() => {
                 <button
                   type="button"
                   class="btn btn-primary"
-                  :disabled="chatSavePending || asrSavePending || testPending || testAsrPending"
+                  :disabled="busy"
                   @click="handleSaveChatConfig"
                 >
                   {{ chatSavePending ? '保存中...' : '保存聊天配置' }}
@@ -444,7 +471,9 @@ onMounted(() => {
               <div class="grid gap-3 sm:min-w-[14rem]">
                 <div class="rounded-[24px] border border-base-200 bg-amber-50/60 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">语音 Key</div>
-                  <div class="mt-2 font-semibold text-base-content">{{ hasExistingAsrApiKey ? '已保存' : '未保存' }}</div>
+                  <div class="mt-2 font-semibold text-base-content">
+                    {{ hasExistingAsrApiKey ? maskedAsrApiKey : '未保存' }}
+                  </div>
                 </div>
                 <div class="rounded-[24px] border border-base-200 bg-amber-50/60 px-4 py-3 text-sm shadow-sm">
                   <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">生效方式</div>
@@ -507,7 +536,7 @@ onMounted(() => {
                     placeholder="留空表示保持当前已保存的 ASR 密钥不变"
                   >
                   <span class="mt-2 text-xs leading-6 text-base-content/55">
-                    输入新 key 会覆盖旧值；留空则保持当前已保存的 ASR key。这里保存的是语音链路自己的 key，不再复用聊天配置。
+                    输入新 key 会覆盖旧值；留空则保持当前已保存的 ASR key。当前保存的是 {{ hasExistingAsrApiKey ? maskedAsrApiKey : '无' }}。这里保存的是语音链路自己的 key，不再复用聊天配置。
                   </span>
                 </label>
               </div>
@@ -520,13 +549,13 @@ onMounted(() => {
 
             <div class="flex flex-col gap-3 border-t border-base-200/80 bg-slate-50/70 px-6 py-5 sm:px-7 md:flex-row md:items-center md:justify-between">
               <p class="text-sm leading-7 text-base-content/55">
-                这里的测试会发一段静音音频去探活，只验证 ASR 请求链路是否可用。
+                这里的测试会发一段静音音频去探活，只验证 `.env` 当前激活 ASR 模型的请求链路是否可用。
               </p>
               <div class="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
                   class="btn btn-ghost border border-base-300 bg-white"
-                  :disabled="chatSavePending || asrSavePending || testPending || testAsrPending"
+                  :disabled="busy"
                   @click="handleTestAsrConnection"
                 >
                   {{ testAsrPending ? '测试中...' : '测试语音识别' }}
@@ -534,7 +563,7 @@ onMounted(() => {
                 <button
                   type="button"
                   class="btn btn-warning text-base-100"
-                  :disabled="chatSavePending || asrSavePending || testPending || testAsrPending"
+                  :disabled="busy"
                   @click="handleSaveAsrConfig"
                 >
                   {{ asrSavePending ? '保存中...' : '保存语音配置' }}
@@ -553,7 +582,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between gap-3">
                   <div class="text-sm font-black text-base-content">聊天</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm">
-                    {{ runtimeSummary?.chat_runtime?.enabled ? 'Studio / .env' : '等待补全配置' }}
+                    {{ runtimeSummary?.chat_runtime?.enabled ? '.env 当前激活 provider' : '等待补全配置' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">
@@ -679,7 +708,7 @@ onMounted(() => {
               <li>聊天支持阿里云百炼、DeepSeek、MiniMax、OpenAI，以及兼容 OpenAI 的自定义接口。</li>
               <li>语音识别当前只支持阿里云百炼兼容接口，建议单独保存一套稳定的 ASR 配置。</li>
               <li>如果模型名和 API Base 留空，系统会按对应模块自动补默认值。</li>
-              <li>这些配置是当前单实例项目唯一的一份运行时设置，会直接影响首页、聊天和 Studio 试聊。</li>
+              <li>如果你维护多套聊天模型，请直接编辑 `backend/.env` 中 `AI_RUNTIME_CONFIG_JSON` 的 `active.chat_provider`。</li>
             </ul>
           </div>
         </aside>

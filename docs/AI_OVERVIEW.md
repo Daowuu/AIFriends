@@ -15,10 +15,11 @@ AIFriends 当前把 AI 能力集中在：
 - 语音一致性
 - 运行时透明性
 - 创作者可控的角色调校
+- 多角色讨论实验
 
 项目的产品主线是：
 
-`角色列表 -> Studio 配置与试聊 -> 正式聊天 / 狼人杀原型`
+`角色列表 -> Studio 配置与试聊 -> 正式聊天 / 讨论组原型`
 
 ## 2. 六层结构
 
@@ -34,8 +35,8 @@ AIFriends 当前把 AI 能力集中在：
    负责 prompt layers、runtime source、记忆注入和错误标签。
 5. `persona`
    负责角色设定、`custom_prompt`、AI 行为配置和音色。
-6. `werewolf prototype`
-   负责多角色房间、系统主持、阶段推进与回放。
+6. `discussion prototype`
+   负责多角色讨论房间、主持节点、DAG 推进与公开回放。
 
 ## 3. 建议阅读顺序
 
@@ -43,7 +44,9 @@ AIFriends 当前把 AI 能力集中在：
    先看怎么启动，以及产品表面有哪些入口。
 2. [AI Engineering](./AI_ENGINEERING.md)
    再看完整实现逻辑、数据结构和失败模式。
-3. [Platform Functions](./PLATFORM_FUNCTIONS.md)
+3. [Discussion Engineering](./DISCUSSION_ENGINEERING.md)
+   如果你重点关注多角色讨论链路，直接看这份。
+4. [Platform Functions](./PLATFORM_FUNCTIONS.md)
    最后看当前 UI 层的页面职责和工作流。
-4. [Iteration Log](./ITERATION_LOG.md)
+5. [Iteration Log](./ITERATION_LOG.md)
    如果需要理解历史演进，再查这份档案。

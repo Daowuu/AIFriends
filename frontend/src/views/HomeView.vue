@@ -131,11 +131,11 @@ onBeforeUnmount(() => {
             </div>
             <div class="mt-6 flex flex-wrap gap-3">
               <RouterLink
-                to="/werewolf"
+                to="/discussion"
                 class="inline-flex items-center gap-2 rounded-full border border-[#d4c7ae] bg-white/82 px-5 py-3 text-sm font-bold text-[#22302b] transition hover:bg-[#fff7e7]"
               >
                 <AppIcon name="game" icon-class="h-4 w-4" />
-                去狼人杀实验场
+                去讨论组工作台
               </RouterLink>
             </div>
           </div>
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
           <li class="rounded-2xl border border-base-200 px-4 py-3">点击角色卡片会直接进入聊天页。</li>
           <li class="rounded-2xl border border-base-200 px-4 py-3">所有角色都来自本地单实例工作台，首页只负责筛选和进入聊天。</li>
           <li class="rounded-2xl border border-base-200 px-4 py-3">文字聊天、语音输入和语音播报共用同一套角色逻辑。</li>
-          <li class="rounded-2xl border border-base-200 px-4 py-3">如果你想看多角色同局流程，可以从导航或这里进入狼人杀模式。</li>
+          <li class="rounded-2xl border border-base-200 px-4 py-3">如果你想让多位角色围绕同一主题逐个发言，可以从导航或这里进入讨论组模式。</li>
         </ul>
       </aside>
     </div>

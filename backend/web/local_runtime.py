@@ -6,7 +6,6 @@ from web.models import Character, Friend, UserAISettings, Voice
 
 LOCAL_OPERATOR_USERNAME = 'local_operator'
 ELYSIA_DEMO_VOICE_CODE = 'cosyvoice-v3.5-plus-bailian-871b21d0985945ad9282d136a6e1a08e'
-ELYSIA_LEGACY_FLASH_VOICE_CODE = 'cosyvoice-v3.5-flash-bailian-99058280e3994e48ad0c44453d58f8e0'
 
 
 def get_or_create_local_operator_user():
@@ -42,19 +41,6 @@ def ensure_demo_voice_configs():
             'is_active': True,
         },
     )
-
-    legacy_voice = Voice.objects.filter(
-        owner=local_user,
-        voice_code=ELYSIA_LEGACY_FLASH_VOICE_CODE,
-        source='custom',
-    ).first()
-    if legacy_voice:
-        if legacy_voice.characters.exists():
-            legacy_voice.name = '爱莉希雅（Flash 旧示例）'
-            legacy_voice.description = '旧的 Flash 示例音色。当前默认示例已切换到 Plus 模型。'
-            legacy_voice.save(update_fields=['name', 'description', 'updated_at'])
-        else:
-            legacy_voice.delete()
 
 
 def get_local_characters_queryset():

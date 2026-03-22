@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import ChatView from '@/views/ChatView.vue'
+import DiscussionView from '@/views/DiscussionView.vue'
 import HomeView from '@/views/HomeView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import StudioView from '@/views/StudioView.vue'
-import WerewolfView from '@/views/WerewolfView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -29,14 +29,14 @@ const router = createRouter({
       component: ChatView,
     },
     {
-      path: '/werewolf',
-      name: 'werewolf',
-      component: WerewolfView,
+      path: '/discussion',
+      name: 'discussion',
+      component: DiscussionView,
     },
     {
-      path: '/werewolf/:gameId',
-      name: 'werewolf-detail',
-      component: WerewolfView,
+      path: '/discussion/:groupId',
+      name: 'discussion-detail',
+      component: DiscussionView,
     },
     {
       path: '/friends',

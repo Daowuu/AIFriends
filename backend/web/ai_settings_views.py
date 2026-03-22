@@ -10,14 +10,16 @@ from rest_framework.response import Response
 
 from web.ai_settings_service import (
     PROVIDER_CONFIGS,
-    get_local_runtime_settings,
+    get_current_runtime_settings,
     get_runtime_summary,
+    list_chat_provider_summaries,
     resolve_user_asr_settings_payload,
     resolve_user_ai_settings_payload,
     save_runtime_env_settings,
     serialize_provider_options,
     serialize_user_ai_settings,
 )
+from web.openai_compat import create_chat_completion
 
 
 def build_silence_wav_data_url(duration_ms=300, sample_rate=16000):
@@ -38,11 +40,12 @@ def build_silence_wav_data_url(duration_ms=300, sample_rate=16000):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def user_ai_settings_view(request):
-    settings = get_local_runtime_settings()
+    settings = get_current_runtime_settings()
 
     if request.method == 'GET':
         return Response({
             'settings': serialize_user_ai_settings(settings),
+            'chat_providers': list_chat_provider_summaries(),
             'providers': serialize_provider_options(),
             'runtime_summary': get_runtime_summary(),
         }, status=status.HTTP_200_OK)
@@ -53,10 +56,14 @@ def user_ai_settings_view(request):
 
     chat_payload = resolve_user_ai_settings_payload(settings, request.data)
     asr_payload = resolve_user_asr_settings_payload(settings, request.data)
-    settings = save_runtime_env_settings(chat_payload=chat_payload, asr_payload=asr_payload)
+    settings = save_runtime_env_settings(
+        chat_payload=chat_payload,
+        asr_payload=asr_payload,
+    )
 
     return Response({
         'settings': serialize_user_ai_settings(settings),
+        'chat_providers': list_chat_provider_summaries(),
         'providers': serialize_provider_options(),
         'runtime_summary': get_runtime_summary(),
     }, status=status.HTTP_200_OK)
@@ -65,7 +72,7 @@ def user_ai_settings_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def test_user_ai_settings_view(request):
-    settings = get_local_runtime_settings()
+    settings = get_current_runtime_settings()
     resolved = resolve_user_ai_settings_payload(settings, request.data)
     provider = resolved['provider']
 
@@ -80,7 +87,8 @@ def test_user_ai_settings_view(request):
 
     try:
         client = OpenAI(api_key=resolved['api_key'], base_url=resolved['api_base'])
-        response = client.chat.completions.create(
+        response = create_chat_completion(
+            client,
             model=resolved['model_name'],
             messages=[{'role': 'user', 'content': '请只回复“OK”，不要输出其他内容。'}],
             temperature=0,
@@ -103,7 +111,7 @@ def test_user_ai_settings_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def test_user_asr_settings_view(request):
-    settings = get_local_runtime_settings()
+    settings = get_current_runtime_settings()
     resolved = resolve_user_asr_settings_payload(settings, request.data)
 
     if not resolved['asr_api_key']:
@@ -143,3 +151,4 @@ def test_user_asr_settings_view(request):
         }, status=status.HTTP_200_OK)
     except Exception as error:
         return Response({'detail': f'ASR 连接测试失败：{error}'}, status=status.HTTP_400_BAD_REQUEST)
+

@@ -19,7 +19,7 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - `/` 角色列表
 - `/chat/:characterId` 正式聊天
 - `/studio` 角色与运行时工作台
-- `/werewolf` 多角色狼人杀原型页
+- `/discussion` 多角色讨论组原型页
 
 这意味着当前 AI 系统的默认假设是：
 
@@ -27,7 +27,7 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - 每个角色对应一段持久会话
 - Studio 负责配置与实验
 - 聊天页负责终端对话
-- 狼人杀页负责多角色房间实验
+- 讨论组页负责多角色房间实验
 
 ---
 
@@ -80,15 +80,17 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - [backend/web/character_views.py](/Users/apple/project/AIFrients/backend/web/character_views.py)
 - [frontend/src/components/CharacterForm.vue](/Users/apple/project/AIFrients/frontend/src/components/CharacterForm.vue)
 
-### 2.6 werewolf prototype
+### 2.6 discussion prototype
 
-负责多角色房间、阶段推进、公共/私有视角分离和系统主持。
+负责多角色讨论房间、DAG 推进、主持节点、公开回放和失败态。
 
 代码入口：
 
-- [backend/web/werewolf_services.py](/Users/apple/project/AIFrients/backend/web/werewolf_services.py)
-- [backend/web/werewolf_views.py](/Users/apple/project/AIFrients/backend/web/werewolf_views.py)
-- [frontend/src/views/WerewolfView.vue](/Users/apple/project/AIFrients/frontend/src/views/WerewolfView.vue)
+- `backend/web/discussion_services.py`
+- `backend/web/discussion_views.py`
+- `backend/web/discussion_dag.py`
+- `backend/web/dag_runtime.py`
+- `frontend/src/views/DiscussionView.vue`
 
 ---
 
@@ -163,14 +165,10 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 
 关键字段：
 
-- `API_PROVIDER`
-- `API_KEY`
-- `API_BASE`
-- `CHAT_MODEL`
-- `ASR_API_KEY`
-- `ASR_API_BASE`
-- `ASR_MODEL`
-- `TTS_MODEL`
+- `AI_RUNTIME_CONFIG_JSON.active.chat_provider`
+- `AI_RUNTIME_CONFIG_JSON.api_keys`
+- `AI_RUNTIME_CONFIG_JSON.chat`
+- `AI_RUNTIME_CONFIG_JSON.voice`
 
 当前语义：
 
@@ -199,18 +197,18 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 
 ### 3.6 WerewolfGame / WerewolfSeat / WerewolfEvent / WerewolfSpeech
 
-狼人杀原型使用独立房间模型，不复用单角色会话。
+当前讨论组仍复用这四张旧表，不复用单角色会话。
 
 关键作用：
 
 - `WerewolfGame`
-  记录房间状态、当前阶段、轮次与胜负结果。
+  记录讨论房间状态、当前阶段、轮次、主持人和 DAG runtime。
 - `WerewolfSeat`
-  保存席位顺序、角色快照、真实身份与存活状态。
+  保存参与角色顺序和角色快照，第一个席位固定为主持人。
 - `WerewolfEvent`
-  保存主持人事件流，例如夜晚结果、白天开始、投票结果和结算。
+  保存流程节点事件，例如主持开场、议题拆解、主持总结、失败事件和讨论结束。
 - `WerewolfSpeech`
-  保存每个席位在不同阶段的发言内容，用于回放和恢复。
+  保存公开舞台发言回放，既包含普通角色发言，也包含主持人公开发言。
 
 ---
 
@@ -220,10 +218,12 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 
 当前解析顺序：
 
-1. 读取 `backend/.env` 中的同步运行时配置
-2. 如果没有聊天 `API_KEY`，返回 `missing`
-3. 如果已有 key，但解析后缺 base / model，返回 `invalid`
-4. 如果配置完整，返回 `ok`
+1. 读取 `.env` 中的 `AI_RUNTIME_CONFIG_JSON`
+2. 解析 `active.chat_provider`
+3. 从 `chat[provider]` 取 `api_base / model_name`
+4. 从 `api_keys[provider]` 取聊天 key
+5. 如果 key / base / model 缺失，则返回 `missing` 或 `invalid`
+6. 如果配置完整，返回 `ok`
 
 当前输出：
 
@@ -240,9 +240,10 @@ Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端
 
 当前优先级：
 
-1. 如果存在 `ASR_API_KEY`，直接读取 `ASR_API_KEY / ASR_API_BASE / ASR_MODEL`
-2. 这套语音运行时同时供语音识别和语音播报使用
-3. 如果没有语音 key，则当前实例不启用语音链路
+1. 读取 `AI_RUNTIME_CONFIG_JSON.voice`
+2. 从 `api_keys.aliyun_voice` 读取语音 key
+3. 这套 `voice` 配置同时供语音识别和语音播报使用
+4. 如果没有语音 key，则当前实例不启用语音链路
 
 ### 4.3 TTS runtime
 
@@ -250,7 +251,7 @@ TTS 当前依赖 DashScope 语音链路：
 
 1. 先解析出一个可用的 DashScope runtime
 2. 再把 HTTP / compatible base 映射成 WebSocket TTS 地址
-3. 使用系统里的 `TTS_MODEL`
+3. 使用 `AI_RUNTIME_CONFIG_JSON.voice.tts_model_name`
 
 ---
 

@@ -14,7 +14,7 @@ The product surface is intentionally small:
 - `/` character list
 - `/chat/:characterId` conversation page
 - `/studio` character + runtime workspace
-- `/werewolf` werewolf prototype room
+- `/discussion` multi-character discussion room
 
 ## Quick Start
 
@@ -54,15 +54,31 @@ Edit:
 Most important variables:
 
 ```env
-API_PROVIDER="aliyun"
-API_KEY=""
-API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
-CHAT_MODEL="qwen-plus"
-
-ASR_API_KEY=""
-ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
-ASR_MODEL="qwen3-asr-flash"
-TTS_MODEL="cosyvoice-v3.5-plus"
+AI_RUNTIME_CONFIG_JSON='{
+  "version": 4,
+  "active": {
+    "chat_provider": "openai"
+  },
+  "api_keys": {
+    "openai": "",
+    "minimax": "",
+    "aliyun_voice": ""
+  },
+  "chat": {
+    "openai": {
+      "api_base": "https://api.openai.com/v1",
+      "model_name": "gpt-5.4",
+      "updated_at": ""
+    }
+  },
+  "voice": {
+    "provider": "aliyun",
+    "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "asr_model_name": "qwen3-asr-flash",
+    "tts_model_name": "cosyvoice-v3.5-plus",
+    "updated_at": ""
+  }
+}'
 
 DJANGO_SECRET_KEY=""
 DJANGO_DEBUG="true"
@@ -118,7 +134,7 @@ cd frontend && npm run build-only
 5. Adjust chat / ASR / TTS runtime in the same Studio
 6. Trial chat and voice preview
 7. Enter `/chat/:characterId` for the formal conversation
-8. If you want a multi-character prototype, enter `/werewolf` to create a basic 5-player room
+8. If you want a multi-character prototype, enter `/discussion` to create a moderated discussion room
 
 ## Using the Sample Role
 
@@ -149,7 +165,8 @@ Start here if you want implementation details:
 
 1. [AI Overview](/Users/apple/project/AIFrients/docs/AI_OVERVIEW.md)
 2. [AI Engineering](/Users/apple/project/AIFrients/docs/AI_ENGINEERING.md)
-3. [Platform Functions](/Users/apple/project/AIFrients/docs/PLATFORM_FUNCTIONS.md)
+3. [Discussion Engineering](/Users/xxx/project/AIFriends/docs/DISCUSSION_ENGINEERING.md)
+4. [Platform Functions](/Users/apple/project/AIFrients/docs/PLATFORM_FUNCTIONS.md)
 
 Supporting files:
 

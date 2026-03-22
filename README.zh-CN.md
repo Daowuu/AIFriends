@@ -14,7 +14,7 @@ AIFriends 是一个单实例的角色 AI 聊天项目，核心关注四件事：
 - `/` 角色列表
 - `/chat/:characterId` 聊天页
 - `/studio` 角色与运行时工作台
-- `/werewolf` 狼人杀原型页
+- `/discussion` 多角色讨论组原型页
 
 ## 快速开始
 
@@ -54,15 +54,31 @@ cd ..
 最重要的变量：
 
 ```env
-API_PROVIDER="aliyun"
-API_KEY=""
-API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
-CHAT_MODEL="qwen-plus"
-
-ASR_API_KEY=""
-ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
-ASR_MODEL="qwen3-asr-flash"
-TTS_MODEL="cosyvoice-v3.5-plus"
+AI_RUNTIME_CONFIG_JSON='{
+  "version": 4,
+  "active": {
+    "chat_provider": "openai"
+  },
+  "api_keys": {
+    "openai": "",
+    "minimax": "",
+    "aliyun_voice": ""
+  },
+  "chat": {
+    "openai": {
+      "api_base": "https://api.openai.com/v1",
+      "model_name": "gpt-5.4",
+      "updated_at": ""
+    }
+  },
+  "voice": {
+    "provider": "aliyun",
+    "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "asr_model_name": "qwen3-asr-flash",
+    "tts_model_name": "cosyvoice-v3.5-plus",
+    "updated_at": ""
+  }
+}'
 
 DJANGO_SECRET_KEY=""
 DJANGO_DEBUG="true"
@@ -118,7 +134,7 @@ cd frontend && npm run build-only
 5. 在同一处调整 chat / ASR / TTS 运行时
 6. 先试聊、试听
 7. 再进入 `/chat/:characterId` 做正式对话
-8. 如果想做多角色实验，可以进入 `/werewolf` 创建一局基础狼人杀
+8. 如果想做多角色实验，可以进入 `/discussion` 创建一组主持驱动的讨论
 
 ## 如何使用示例角色
 
@@ -149,7 +165,8 @@ cd frontend && npm run build-only
 
 1. [AI Overview](/Users/apple/project/AIFrients/docs/AI_OVERVIEW.md)
 2. [AI Engineering](/Users/apple/project/AIFrients/docs/AI_ENGINEERING.md)
-3. [Platform Functions](/Users/apple/project/AIFrients/docs/PLATFORM_FUNCTIONS.md)
+3. [Discussion Engineering](/Users/xxx/project/AIFriends/docs/DISCUSSION_ENGINEERING.md)
+4. [Platform Functions](/Users/apple/project/AIFrients/docs/PLATFORM_FUNCTIONS.md)
 
 辅助文件：
 

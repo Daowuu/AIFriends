@@ -18,9 +18,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Prefer the documented backend/.env file, and allow a repo-root .env as fallback.
+# Prefer the documented backend/.env file only.
 load_dotenv(BASE_DIR / '.env')
-load_dotenv(BASE_DIR.parent / '.env')
 
 mimetypes.add_type('application/javascript', '.mjs', True)
 mimetypes.add_type('application/wasm', '.wasm', True)

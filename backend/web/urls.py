@@ -21,12 +21,13 @@ from web.feed_views import homepage_index_view, public_character_detail_view
 from web.message_views import get_history_view, message_chat_view, reset_conversation_view
 from web.studio_views import studio_overview_view
 from web.tts_views import message_tts_view, preview_tts_view
-from web.werewolf_views import (
-    advance_werewolf_game_view,
-    create_werewolf_game_view,
-    get_werewolf_game_view,
-    list_werewolf_games_view,
-    reset_werewolf_game_view,
+from web.discussion_views import (
+    advance_discussion_group_view,
+    create_discussion_group_view,
+    get_discussion_group_view,
+    list_discussion_groups_view,
+    remove_discussion_group_view,
+    reset_discussion_group_view,
 )
 
 urlpatterns = [
@@ -51,9 +52,10 @@ urlpatterns = [
     path('session/asr/', speech_to_text_view, name='session_message_asr'),
     path('session/tts/', message_tts_view, name='session_message_tts'),
     path('character/voice/preview/', preview_tts_view, name='character_voice_preview'),
-    path('werewolf/games/', list_werewolf_games_view, name='werewolf_game_list'),
-    path('werewolf/games/create/', create_werewolf_game_view, name='werewolf_game_create'),
-    path('werewolf/games/<int:game_id>/', get_werewolf_game_view, name='werewolf_game_detail'),
-    path('werewolf/games/<int:game_id>/advance/', advance_werewolf_game_view, name='werewolf_game_advance'),
-    path('werewolf/games/<int:game_id>/reset/', reset_werewolf_game_view, name='werewolf_game_reset'),
+    path('discussion/groups/', list_discussion_groups_view, name='discussion_group_list'),
+    path('discussion/groups/create/', create_discussion_group_view, name='discussion_group_create'),
+    path('discussion/groups/<int:group_id>/', get_discussion_group_view, name='discussion_group_detail'),
+    path('discussion/groups/<int:group_id>/advance/', advance_discussion_group_view, name='discussion_group_advance'),
+    path('discussion/groups/<int:group_id>/reset/', reset_discussion_group_view, name='discussion_group_reset'),
+    path('discussion/groups/<int:group_id>/remove/', remove_discussion_group_view, name='discussion_group_remove'),
 ]

@@ -9,6 +9,7 @@ from openai import OpenAI
 
 from web.ai_settings_service import get_runtime_ai_resolution
 from web.models import Message, SystemPrompt
+from web.openai_compat import create_chat_completion
 
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -444,7 +445,7 @@ def request_memory_summary(client, runtime_config, messages, *, force_json_forma
     }
     if force_json_format:
         kwargs['response_format'] = {'type': 'json_object'}
-    return client.chat.completions.create(**kwargs)
+    return create_chat_completion(client, **kwargs)
 
 
 def refresh_friend_memory(friend, runtime_config):

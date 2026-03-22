@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from web.ai_settings_service import (
     PROVIDER_CONFIGS,
     get_or_create_user_ai_settings,
+    get_runtime_summary,
     resolve_user_asr_settings_payload,
     resolve_user_ai_settings_payload,
     serialize_provider_options,
@@ -42,6 +43,7 @@ def user_ai_settings_view(request):
         return Response({
             'settings': serialize_user_ai_settings(settings),
             'providers': serialize_provider_options(),
+            'runtime_summary': get_runtime_summary(request.user),
         }, status=status.HTTP_200_OK)
 
     provider = str(request.data.get('provider', settings.provider)).strip() or settings.provider
@@ -53,6 +55,9 @@ def user_ai_settings_view(request):
     api_key = str(request.data.get('api_key', '')).strip()
     api_base = str(request.data.get('api_base', '')).strip()
     model_name = str(request.data.get('model_name', '')).strip()
+    chat_supports_dashscope_audio = str(
+        request.data.get('chat_supports_dashscope_audio', settings.chat_supports_dashscope_audio),
+    ).lower() in {'1', 'true', 'yes', 'on'}
     asr_enabled = str(request.data.get('asr_enabled', settings.asr_enabled)).lower() in {'1', 'true', 'yes', 'on'}
     clear_asr_api_key = str(request.data.get('clear_asr_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
     asr_api_key = str(request.data.get('asr_api_key', '')).strip()
@@ -63,6 +68,7 @@ def user_ai_settings_view(request):
     settings.provider = provider
     settings.api_base = api_base[:512]
     settings.model_name = model_name[:128]
+    settings.chat_supports_dashscope_audio = chat_supports_dashscope_audio
     settings.asr_enabled = asr_enabled
     settings.asr_api_base = asr_api_base[:512]
     settings.asr_model_name = asr_model_name[:128]
@@ -82,6 +88,7 @@ def user_ai_settings_view(request):
     return Response({
         'settings': serialize_user_ai_settings(settings),
         'providers': serialize_provider_options(),
+        'runtime_summary': get_runtime_summary(request.user),
     }, status=status.HTTP_200_OK)
 
 

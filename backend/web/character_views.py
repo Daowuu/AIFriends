@@ -18,6 +18,18 @@ def _normalize_name(raw_name):
     return str(raw_name or '').strip()
 
 
+def _normalize_bool(value, *, default=False):
+    if value is None or value == '':
+        return default
+    return str(value).lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _valid_choice(value, choices, default):
+    normalized = str(value or '').strip()
+    valid_values = {choice[0] for choice in choices}
+    return normalized if normalized in valid_values else default
+
+
 def _get_available_voices(user):
     return Voice.objects.filter(
         is_active=True,
@@ -81,6 +93,49 @@ def _normalize_custom_voice_payload(payload):
         'voice_code': custom_voice_code,
         'model_name': str(payload.get('custom_voice_model_name', '') or '').strip() or 'cosyvoice-v3.5-plus',
         'description': str(payload.get('custom_voice_description', '') or '').strip(),
+    }
+
+
+def _resolve_character_ai_config(payload, *, character=None):
+    reference = character or Character()
+    return {
+        'reply_style': _valid_choice(
+            payload.get('reply_style', getattr(reference, 'reply_style', 'natural')),
+            Character.REPLY_STYLE_CHOICES,
+            'natural',
+        ),
+        'reply_length': _valid_choice(
+            payload.get('reply_length', getattr(reference, 'reply_length', 'balanced')),
+            Character.REPLY_LENGTH_CHOICES,
+            'balanced',
+        ),
+        'initiative_level': _valid_choice(
+            payload.get('initiative_level', getattr(reference, 'initiative_level', 'balanced')),
+            Character.INITIATIVE_LEVEL_CHOICES,
+            'balanced',
+        ),
+        'memory_mode': _valid_choice(
+            payload.get('memory_mode', getattr(reference, 'memory_mode', 'standard')),
+            Character.MEMORY_MODE_CHOICES,
+            'standard',
+        ),
+        'persona_boundary': _valid_choice(
+            payload.get('persona_boundary', getattr(reference, 'persona_boundary', 'companion')),
+            Character.PERSONA_BOUNDARY_CHOICES,
+            'companion',
+        ),
+        'tools_enabled': _normalize_bool(
+            payload.get('tools_enabled'),
+            default=getattr(reference, 'tools_enabled', False),
+        ),
+        'tools_require_confirmation': _normalize_bool(
+            payload.get('tools_require_confirmation'),
+            default=getattr(reference, 'tools_require_confirmation', True),
+        ),
+        'tools_read_only': _normalize_bool(
+            payload.get('tools_read_only'),
+            default=getattr(reference, 'tools_read_only', True),
+        ),
     }
 
 
@@ -165,6 +220,7 @@ def list_characters_view(request):
 def create_character_view(request):
     name = _normalize_name(request.data.get('name', ''))
     profile = str(request.data.get('profile', '') or '').strip()
+    custom_prompt = str(request.data.get('custom_prompt', '') or '').strip()
     photo = request.FILES.get('photo')
     background_image = request.FILES.get('background_image')
 
@@ -176,13 +232,17 @@ def create_character_view(request):
     except ValueError as error:
         return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
+    ai_config = _resolve_character_ai_config(request.data)
+
     character = Character.objects.create(
         user=request.user,
         name=name,
         profile=profile,
+        custom_prompt=custom_prompt,
         voice=voice,
         photo=photo,
         background_image=background_image,
+        **ai_config,
     )
 
     return Response({'character': serialize_character(character, viewer=request.user)}, status=status.HTTP_201_CREATED)
@@ -202,6 +262,7 @@ def update_character_view(request, character_id):
 
     name = _normalize_name(request.data.get('name', character.name))
     profile = str(request.data.get('profile', character.profile) or '').strip()
+    custom_prompt = str(request.data.get('custom_prompt', character.custom_prompt) or '').strip()
     photo = request.FILES.get('photo')
     background_image = request.FILES.get('background_image')
     remove_photo = request.data.get('remove_photo') in {'1', 'true', 'True'}
@@ -215,9 +276,20 @@ def update_character_view(request, character_id):
     except ValueError as error:
         return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
+    ai_config = _resolve_character_ai_config(request.data, character=character)
+
     character.name = name
     character.profile = profile
+    character.custom_prompt = custom_prompt
     character.voice = voice
+    character.reply_style = ai_config['reply_style']
+    character.reply_length = ai_config['reply_length']
+    character.initiative_level = ai_config['initiative_level']
+    character.memory_mode = ai_config['memory_mode']
+    character.persona_boundary = ai_config['persona_boundary']
+    character.tools_enabled = ai_config['tools_enabled']
+    character.tools_require_confirmation = ai_config['tools_require_confirmation']
+    character.tools_read_only = ai_config['tools_read_only']
 
     if photo:
         replace_stored_file(character, 'photo', photo)

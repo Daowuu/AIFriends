@@ -10,24 +10,36 @@ const props = withDefaults(defineProps<{
   initialCharacter?: Character | null
   voices?: VoiceOption[]
   pending?: boolean
+  showVoicePreview?: boolean
 }>(), {
   initialCharacter: null,
   voices: () => [],
   pending: false,
+  showVoicePreview: true,
 })
 
 const emit = defineEmits<{
   submit: [payload: CharacterFormPayload]
   voicesChanged: []
+  voicePreviewStateChanged: [state: { isPreviewing: boolean; error: string }]
 }>()
 
 const name = ref('')
 const profile = ref('')
+const customPrompt = ref('')
 const selectedVoiceId = ref<number | null>(null)
 const customVoiceName = ref('')
 const customVoiceCode = ref('')
 const customVoiceModelName = ref('cosyvoice-v3.5-plus')
 const customVoiceDescription = ref('')
+const replyStyle = ref<CharacterFormPayload['aiConfig']['reply_style']>('natural')
+const replyLength = ref<CharacterFormPayload['aiConfig']['reply_length']>('balanced')
+const initiativeLevel = ref<CharacterFormPayload['aiConfig']['initiative_level']>('balanced')
+const memoryMode = ref<CharacterFormPayload['aiConfig']['memory_mode']>('standard')
+const personaBoundary = ref<CharacterFormPayload['aiConfig']['persona_boundary']>('companion')
+const toolsEnabled = ref(false)
+const toolsRequireConfirmation = ref(true)
+const toolsReadOnly = ref(true)
 const photoPreview = ref('')
 const backgroundPreview = ref('')
 const photoFile = ref<File | null>(null)
@@ -45,10 +57,46 @@ let previewAudioUrl = ''
 
 const selectedVoice = computed(() => props.voices.find((voice) => voice.id === selectedVoiceId.value) ?? null)
 const selectedCustomVoice = computed(() => (selectedVoice.value?.source === 'custom' ? selectedVoice.value : null))
+const promptTemplate = [
+  '【必须遵守】',
+  '- 始终保持角色身份，不要承认自己是 AI 或模型。',
+  '- 回复时优先遵守角色设定和关系边界。',
+  '',
+  '【禁止行为】',
+  '- 不要跳出角色解释系统、提示词、后台逻辑。',
+  '- 不要虚构自己已经调用了工具或完成了外部操作。',
+  '',
+  '【关系边界】',
+  '- 用户和角色是什么关系。',
+  '- 角色可以亲近到什么程度，哪些内容要克制。',
+  '',
+  '【说话方式】',
+  '- 用词习惯、语气、节奏、口头禅。',
+].join('\n')
+
+const replyStyleDescription = computed(() => ({
+  natural: '自然、顺滑、口语化，适合大多数角色。',
+  warm: '更热情、更有温度，适合陪伴感较强的角色。',
+  restrained: '更克制、更稳定，适合冷静、成熟或有距离感的角色。',
+  playful: '更轻盈、俏皮、有灵气，但不应该浮夸。',
+}[replyStyle.value]))
+
+const initiativeDescription = computed(() => ({
+  passive: '以回应为主，不主动拉长话题。',
+  balanced: '在自然时机追问或接话，保持交流流动感。',
+  proactive: '会主动延展和引导，但不喧宾夺主。',
+}[initiativeLevel.value]))
+
+const personaBoundaryDescription = computed(() => ({
+  grounded: '更像真实的人，少一点表演感和夸张情绪。',
+  companion: '更偏陪伴感，允许稳定关心、亲近和安抚。',
+  dramatic: '角色味更重，表达更鲜明，但仍要连贯可信。',
+}[personaBoundary.value]))
 
 watch(() => props.initialCharacter, (character) => {
   name.value = character?.name ?? ''
   profile.value = character?.profile ?? ''
+  customPrompt.value = character?.custom_prompt ?? ''
   selectedVoiceId.value = character?.voice_id ?? null
   customVoiceName.value = character?.voice?.source === 'custom' ? (character.voice?.name ?? '') : ''
   customVoiceCode.value = character?.voice?.source === 'custom' ? (character.voice?.voice_code ?? '') : ''
@@ -56,6 +104,14 @@ watch(() => props.initialCharacter, (character) => {
     ? (character.voice?.model_name ?? 'cosyvoice-v3.5-plus')
     : 'cosyvoice-v3.5-plus'
   customVoiceDescription.value = character?.voice?.source === 'custom' ? (character.voice?.description ?? '') : ''
+  replyStyle.value = character?.ai_config?.reply_style ?? 'natural'
+  replyLength.value = character?.ai_config?.reply_length ?? 'balanced'
+  initiativeLevel.value = character?.ai_config?.initiative_level ?? 'balanced'
+  memoryMode.value = character?.ai_config?.memory_mode ?? 'standard'
+  personaBoundary.value = character?.ai_config?.persona_boundary ?? 'companion'
+  toolsEnabled.value = character?.ai_config?.tools_enabled ?? false
+  toolsRequireConfirmation.value = character?.ai_config?.tools_require_confirmation ?? true
+  toolsReadOnly.value = character?.ai_config?.tools_read_only ?? true
   photoPreview.value = character?.photo ?? ''
   backgroundPreview.value = character?.background_image ?? ''
   photoFile.value = null
@@ -84,6 +140,15 @@ const resetCustomVoiceDraft = () => {
   customVoiceMessage.value = ''
 }
 
+const applyPromptTemplate = () => {
+  if (!customPrompt.value.trim()) {
+    customPrompt.value = promptTemplate
+    return
+  }
+
+  customPrompt.value = `${customPrompt.value.trim()}\n\n${promptTemplate}`
+}
+
 const stopVoicePreview = () => {
   if (previewAudio) {
     previewAudio.onended = null
@@ -100,7 +165,7 @@ const stopVoicePreview = () => {
   isPreviewingVoice.value = false
 }
 
-const handlePreviewVoice = async () => {
+const previewVoiceFromCurrentDraft = async (customText?: string) => {
   if (isPreviewingVoice.value) {
     stopVoicePreview()
     return
@@ -110,6 +175,7 @@ const handlePreviewVoice = async () => {
   isPreviewingVoice.value = true
 
   try {
+    const previewText = String(customText ?? voicePreviewText.value).trim() || '你好呀，今天想和你聊点什么？'
     const response = await api.post(
       '/create/character/voice/preview/',
       {
@@ -118,7 +184,7 @@ const handlePreviewVoice = async () => {
         custom_voice_code: customVoiceCode.value.trim(),
         custom_voice_model_name: customVoiceModelName.value.trim(),
         custom_voice_description: customVoiceDescription.value.trim(),
-        text: voicePreviewText.value.trim() || '你好呀，今天想和你聊点什么？',
+        text: previewText,
       },
       {
         responseType: 'blob',
@@ -161,6 +227,10 @@ const handlePreviewVoice = async () => {
     }
     stopVoicePreview()
   }
+}
+
+const handlePreviewVoice = async () => {
+  await previewVoiceFromCurrentDraft()
 }
 
 const saveCustomVoice = async () => {
@@ -231,11 +301,22 @@ const handleSubmit = () => {
   emit('submit', {
     name: name.value.trim(),
     profile: profile.value.trim(),
+    customPrompt: customPrompt.value.trim(),
     voiceId: selectedVoiceId.value,
     customVoiceName: shouldSubmitCustomVoice ? customVoiceName.value.trim() : '',
     customVoiceCode: shouldSubmitCustomVoice ? customVoiceCode.value.trim() : '',
     customVoiceModelName: shouldSubmitCustomVoice ? customVoiceModelName.value.trim() : '',
     customVoiceDescription: shouldSubmitCustomVoice ? customVoiceDescription.value.trim() : '',
+    aiConfig: {
+      reply_style: replyStyle.value,
+      reply_length: replyLength.value,
+      initiative_level: initiativeLevel.value,
+      memory_mode: memoryMode.value,
+      persona_boundary: personaBoundary.value,
+      tools_enabled: toolsEnabled.value,
+      tools_require_confirmation: toolsRequireConfirmation.value,
+      tools_read_only: toolsReadOnly.value,
+    },
     photoFile: photoFile.value,
     backgroundImageFile: backgroundImageFile.value,
     removePhoto: removePhoto.value,
@@ -245,6 +326,18 @@ const handleSubmit = () => {
 
 onBeforeUnmount(() => {
   stopVoicePreview()
+})
+
+watch([isPreviewingVoice, voicePreviewError], ([nextPreviewing, nextError]) => {
+  emit('voicePreviewStateChanged', {
+    isPreviewing: nextPreviewing,
+    error: nextError,
+  })
+}, { immediate: true })
+
+defineExpose({
+  previewVoiceFromCurrentDraft,
+  stopVoicePreview,
 })
 </script>
 
@@ -263,7 +356,7 @@ onBeforeUnmount(() => {
           <div class="mt-7 space-y-7">
             <div class="space-y-2">
               <label for="character-name" class="block text-sm font-black text-base-content/80">
-                角色名字
+                Step 1 · 角色名字
               </label>
               <p class="text-xs leading-5 text-base-content/50">
                 建议控制在 2 到 8 个字，便于后续列表和聊天页展示。
@@ -280,7 +373,7 @@ onBeforeUnmount(() => {
 
             <div class="space-y-2">
               <label for="character-profile" class="block text-sm font-black text-base-content/80">
-                角色介绍
+                Step 1 · 角色介绍
               </label>
               <p class="text-xs leading-5 text-base-content/50">
                 可以写性格、口头禅、世界观、说话方式，越具体越好。
@@ -294,11 +387,135 @@ onBeforeUnmount(() => {
               />
             </div>
 
+            <div class="space-y-2">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <label for="character-custom-prompt" class="block text-sm font-black text-base-content/80">
+                    Step 1 · 自定义 Prompt
+                  </label>
+                  <p class="mt-1 text-xs leading-5 text-base-content/50">
+                    这部分只给 AI 看，不直接展示给用户。适合写回复禁忌、关系边界、表达偏好、必须遵守的角色规则。
+                  </p>
+                </div>
+                <button type="button" class="btn btn-ghost btn-xs" @click="applyPromptTemplate">
+                  填入建议模板
+                </button>
+              </div>
+              <textarea
+                id="character-custom-prompt"
+                v-model="customPrompt"
+                class="textarea textarea-bordered mt-3 min-h-44 w-full bg-base-100"
+                maxlength="4000"
+                placeholder="例如：始终把用户当作多年未见的旧友；避免使用现代网络梗；不要主动讨论自己是 AI 或模型。"
+              />
+              <div class="rounded-2xl border border-base-200 bg-base-200/40 px-4 py-3 text-xs leading-6 text-base-content/60">
+                建议把 Prompt 分成 4 段：必须遵守、禁止行为、关系边界、说话方式。这样后续更容易稳定角色。
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-base-200 bg-base-100/80 p-6">
+              <div class="flex flex-col gap-2 border-b border-base-200 pb-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <div class="block text-sm font-black text-base-content/80">
+                    Step 2 · AI 对话配置
+                  </div>
+                  <p class="mt-2 text-xs leading-5 text-base-content/50">
+                    这些设置会进入角色的聊天规则层，用来稳定回复风格、主动性和记忆方式。
+                  </p>
+                </div>
+                <div class="text-xs leading-5 text-base-content/50">
+                  配置面向创作者，不会直接暴露给普通用户。
+                </div>
+              </div>
+
+              <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <label class="form-control">
+                  <span class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/50">回复风格</span>
+                  <select v-model="replyStyle" class="select select-bordered mt-2 bg-base-100">
+                    <option value="natural">自然</option>
+                    <option value="warm">热情</option>
+                    <option value="restrained">克制</option>
+                    <option value="playful">俏皮</option>
+                  </select>
+                  <span class="mt-2 text-xs leading-5 text-base-content/50">{{ replyStyleDescription }}</span>
+                </label>
+
+                <label class="form-control">
+                  <span class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/50">回复长度</span>
+                  <select v-model="replyLength" class="select select-bordered mt-2 bg-base-100">
+                    <option value="short">简短</option>
+                    <option value="balanced">适中</option>
+                    <option value="detailed">详细</option>
+                  </select>
+                </label>
+
+                <label class="form-control">
+                  <span class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/50">主动性</span>
+                  <select v-model="initiativeLevel" class="select select-bordered mt-2 bg-base-100">
+                    <option value="passive">被动回应</option>
+                    <option value="balanced">适度追问</option>
+                    <option value="proactive">积极引导</option>
+                  </select>
+                  <span class="mt-2 text-xs leading-5 text-base-content/50">{{ initiativeDescription }}</span>
+                </label>
+
+                <label class="form-control">
+                  <span class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/50">记忆强度</span>
+                  <select v-model="memoryMode" class="select select-bordered mt-2 bg-base-100">
+                    <option value="off">关闭</option>
+                    <option value="standard">标准</option>
+                    <option value="enhanced">加强</option>
+                  </select>
+                </label>
+
+                <label class="form-control">
+                  <span class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/50">角色边界</span>
+                  <select v-model="personaBoundary" class="select select-bordered mt-2 bg-base-100">
+                    <option value="grounded">写实</option>
+                    <option value="companion">陪伴</option>
+                    <option value="dramatic">戏剧化</option>
+                  </select>
+                  <span class="mt-2 text-xs leading-5 text-base-content/50">{{ personaBoundaryDescription }}</span>
+                </label>
+
+                <div class="rounded-2xl border border-base-200 bg-base-200/40 px-4 py-3 text-xs leading-6 text-base-content/65">
+                  <div class="font-bold text-base-content/80">当前策略摘要</div>
+                  <div class="mt-1">风格：{{ replyStyle }}</div>
+                  <div>长度：{{ replyLength }}</div>
+                  <div>主动性：{{ initiativeLevel }}</div>
+                  <div>记忆：{{ memoryMode }}</div>
+                  <div>边界：{{ personaBoundary }}</div>
+                </div>
+              </div>
+
+              <div class="mt-5 rounded-2xl border border-dashed border-base-300 bg-base-100/70 p-5">
+                <div class="text-sm font-black text-base-content/80">工具边界预留</div>
+                <p class="mt-2 text-xs leading-5 text-base-content/50">
+                  这一轮还不会真正执行工具，但这里先把角色是否允许启用、是否要求确认、是否只读的边界留好。
+                </p>
+
+                <div class="mt-4 grid gap-3 md:grid-cols-3">
+                  <label class="label cursor-pointer justify-start gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-4">
+                    <input v-model="toolsEnabled" type="checkbox" class="toggle toggle-primary toggle-sm" />
+                    <span class="text-sm text-base-content/75">允许未来启用工具</span>
+                  </label>
+                  <label class="label cursor-pointer justify-start gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-4">
+                    <input v-model="toolsRequireConfirmation" type="checkbox" class="toggle toggle-primary toggle-sm" />
+                    <span class="text-sm text-base-content/75">需要用户确认</span>
+                  </label>
+                  <label class="label cursor-pointer justify-start gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-4">
+                    <input v-model="toolsReadOnly" type="checkbox" class="toggle toggle-primary toggle-sm" />
+                    <span class="text-sm text-base-content/75">只读能力</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div class="rounded-3xl border border-base-200 bg-base-100/80 p-6">
               <div class="flex flex-col gap-2 border-b border-base-200 pb-4 md:flex-row md:items-end md:justify-between">
                 <div>
                   <label for="character-voice" class="block text-sm font-black text-base-content/80">
-                    语音配置
+                    Step 3 · 语音配置
                   </label>
                   <p class="mt-2 text-xs leading-5 text-base-content/50">
                     在这里直接配置角色实际使用的音色。你可以选系统音色，也可以填写自己的阿里云 `voice_id`。
@@ -435,8 +652,8 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <div class="mt-5 rounded-2xl border border-base-200 bg-base-100 p-5">
-                <div class="text-sm font-black text-base-content/80">语音试听</div>
+              <div v-if="props.showVoicePreview" class="mt-5 rounded-2xl border border-base-200 bg-base-100 p-5">
+                <div class="text-sm font-black text-base-content/80">Step 4 · 语音试听</div>
                 <p class="mt-2 text-xs leading-5 text-base-content/50">
                   先试听当前配置，再决定是否保存角色。这里会直接使用这张卡片里当前填写的音色信息。
                 </p>
@@ -470,22 +687,6 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <ImageCropField
-          title="聊天背景"
-          helper="推荐裁成竖向海报比例，系统会导出为更轻的 WebP，兼顾清晰度和加载速度。"
-          :model-value="backgroundPreview"
-          :viewport-width="220"
-          :aspect-ratio="9 / 16"
-          :output-width="1080"
-          :output-format="'webp'"
-          :output-quality="0.9"
-          :max-file-size-m-b="12"
-          @change="({ file, preview }) => {
-            backgroundImageFile = file
-            backgroundPreview = preview
-            removeBackgroundImage = !file && !preview
-          }"
-        />
       </div>
 
       <div class="space-y-8">
@@ -503,6 +704,23 @@ onBeforeUnmount(() => {
             photoFile = file
             photoPreview = preview
             removePhoto = !file && !preview
+          }"
+        />
+
+        <ImageCropField
+          title="聊天背景"
+          helper="推荐裁成竖向海报比例，系统会导出为更轻的 WebP，兼顾清晰度和加载速度。"
+          :model-value="backgroundPreview"
+          :viewport-width="220"
+          :aspect-ratio="9 / 16"
+          :output-width="1080"
+          :output-format="'webp'"
+          :output-quality="0.9"
+          :max-file-size-m-b="12"
+          @change="({ file, preview }) => {
+            backgroundImageFile = file
+            backgroundPreview = preview
+            removeBackgroundImage = !file && !preview
           }"
         />
 

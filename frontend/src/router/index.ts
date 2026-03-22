@@ -12,8 +12,8 @@ import NotFoundView from '@/views/NotFoundView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import SpaceView from '@/views/SpaceView.vue'
+import StudioView from '@/views/StudioView.vue'
 import UpdateCharacterView from '@/views/UpdateCharacterView.vue'
-import WorkspaceView from '@/views/WorkspaceView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,12 +32,16 @@ const router = createRouter({
       },
     },
     {
-      path: '/workspace',
-      name: 'workspace',
-      component: WorkspaceView,
+      path: '/studio',
+      name: 'studio',
+      component: StudioView,
       meta: {
         requiresAuth: true,
       },
+    },
+    {
+      path: '/workspace',
+      redirect: { name: 'studio' },
     },
     {
       path: '/profile',

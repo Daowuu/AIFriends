@@ -16,8 +16,11 @@ const user = useUserStore()
 const character = ref<Character | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const actionMessage = ref('')
 const friendActionPending = ref(false)
 const suppressAutoSession = ref(false)
+const conversationActionPending = ref(false)
+const chatFieldKey = ref(0)
 
 const characterId = computed(() => Number(route.params.characterId))
 
@@ -31,6 +34,7 @@ const seedCharacterFromHistory = () => {
 const loadCharacter = async () => {
   loading.value = true
   errorMessage.value = ''
+  actionMessage.value = ''
   suppressAutoSession.value = false
 
   seedCharacterFromHistory()
@@ -79,6 +83,41 @@ const loginToChat = async () => {
     name: 'login',
     query: { redirect: route.fullPath },
   })
+}
+
+const refreshChatField = () => {
+  chatFieldKey.value += 1
+}
+
+const handleConversationReset = async () => {
+  if (!character.value?.friend_id || conversationActionPending.value) return
+
+  const confirmMessage = '重置聊天窗口会清空当前消息记录，但会保留这段关系记忆。是否继续？'
+
+  if (typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
+    return
+  }
+
+  conversationActionPending.value = true
+  errorMessage.value = ''
+  actionMessage.value = ''
+
+  try {
+    const response = await api.post<{ detail: string }>('/friend/message/reset/', {
+      friend_id: character.value.friend_id,
+      mode: 'history',
+    })
+    actionMessage.value = response.data.detail
+    refreshChatField()
+  } catch (error: unknown) {
+    errorMessage.value = '重置聊天窗口失败。'
+    if (typeof error === 'object' && error && 'response' in error) {
+      const response = (error as { response?: { data?: { detail?: string } } }).response
+      errorMessage.value = response?.data?.detail || errorMessage.value
+    }
+  } finally {
+    conversationActionPending.value = false
+  }
 }
 
 watch(characterId, () => {
@@ -228,11 +267,25 @@ const backgroundFigureStyle = computed(() => {
               >
                 {{ friendActionPending ? '处理中...' : '开始聊天' }}
               </button>
+              <template v-else>
+                <button
+                  type="button"
+                  class="btn btn-sm rounded-full"
+                  :disabled="conversationActionPending"
+                  @click="handleConversationReset"
+                >
+                  {{ conversationActionPending ? '处理中...' : '重置聊天窗口' }}
+                </button>
+              </template>
             </div>
           </div>
 
           <div v-if="errorMessage" class="alert alert-error border-0 shadow-lg">
             {{ errorMessage }}
+          </div>
+
+          <div v-if="actionMessage" class="alert alert-success border-0 shadow-lg">
+            {{ actionMessage }}
           </div>
 
           <div
@@ -251,6 +304,7 @@ const backgroundFigureStyle = computed(() => {
             class="flex h-[calc(100vh-92px)] min-h-[520px] w-full max-w-[760px] max-h-[920px] sm:min-h-[620px] xl:min-w-[760px] xl:max-w-[840px]"
           >
             <ChatField
+              :key="chatFieldKey"
               :character="character"
               :pending="friendActionPending"
               :can-manage-friend="user.isAuthenticated"

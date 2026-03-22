@@ -13,9 +13,37 @@ class UserProfile(models.Model):
 
 
 class Character(models.Model):
+    REPLY_STYLE_CHOICES = (
+        ('natural', 'natural'),
+        ('warm', 'warm'),
+        ('restrained', 'restrained'),
+        ('playful', 'playful'),
+    )
+    REPLY_LENGTH_CHOICES = (
+        ('short', 'short'),
+        ('balanced', 'balanced'),
+        ('detailed', 'detailed'),
+    )
+    INITIATIVE_LEVEL_CHOICES = (
+        ('passive', 'passive'),
+        ('balanced', 'balanced'),
+        ('proactive', 'proactive'),
+    )
+    MEMORY_MODE_CHOICES = (
+        ('off', 'off'),
+        ('standard', 'standard'),
+        ('enhanced', 'enhanced'),
+    )
+    PERSONA_BOUNDARY_CHOICES = (
+        ('grounded', 'grounded'),
+        ('companion', 'companion'),
+        ('dramatic', 'dramatic'),
+    )
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='characters')
     name = models.CharField(max_length=64)
     profile = models.TextField(blank=True, default='')
+    custom_prompt = models.TextField(blank=True, default='')
     voice = models.ForeignKey(
         'Voice',
         on_delete=models.SET_NULL,
@@ -29,6 +57,14 @@ class Character(models.Model):
         blank=True,
         null=True,
     )
+    reply_style = models.CharField(max_length=32, choices=REPLY_STYLE_CHOICES, default='natural')
+    reply_length = models.CharField(max_length=32, choices=REPLY_LENGTH_CHOICES, default='balanced')
+    initiative_level = models.CharField(max_length=32, choices=INITIATIVE_LEVEL_CHOICES, default='balanced')
+    memory_mode = models.CharField(max_length=32, choices=MEMORY_MODE_CHOICES, default='standard')
+    persona_boundary = models.CharField(max_length=32, choices=PERSONA_BOUNDARY_CHOICES, default='companion')
+    tools_enabled = models.BooleanField(default=False)
+    tools_require_confirmation = models.BooleanField(default=True)
+    tools_read_only = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,6 +78,13 @@ class Character(models.Model):
 class Friend(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friends')
     character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='friends')
+    conversation_summary = models.TextField(blank=True, default='')
+    relationship_memory = models.TextField(blank=True, default='')
+    user_preference_memory = models.TextField(blank=True, default='')
+    memory_updated_at = models.DateTimeField(blank=True, null=True)
+    memory_refresh_attempted_at = models.DateTimeField(blank=True, null=True)
+    last_debug_snapshot = models.JSONField(blank=True, default=dict)
+    last_debug_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -135,6 +178,7 @@ class UserAISettings(models.Model):
     api_key = models.CharField(max_length=512, blank=True, default='')
     api_base = models.CharField(max_length=512, blank=True, default='')
     model_name = models.CharField(max_length=128, blank=True, default='')
+    chat_supports_dashscope_audio = models.BooleanField(default=False)
     asr_enabled = models.BooleanField(default=False)
     asr_api_key = models.CharField(max_length=512, blank=True, default='')
     asr_api_base = models.CharField(max_length=512, blank=True, default='')

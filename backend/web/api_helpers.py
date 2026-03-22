@@ -44,6 +44,19 @@ def serialize_voice(voice: Voice, *, viewer=None):
     }
 
 
+def serialize_character_ai_config(character: Character):
+    return {
+        'reply_style': character.reply_style,
+        'reply_length': character.reply_length,
+        'initiative_level': character.initiative_level,
+        'memory_mode': character.memory_mode,
+        'persona_boundary': character.persona_boundary,
+        'tools_enabled': character.tools_enabled,
+        'tools_require_confirmation': character.tools_require_confirmation,
+        'tools_read_only': character.tools_read_only,
+    }
+
+
 def serialize_character(character: Character, *, viewer=None, friend_id=None):
     viewer_id = viewer.id if getattr(viewer, 'is_authenticated', False) else None
 
@@ -51,6 +64,7 @@ def serialize_character(character: Character, *, viewer=None, friend_id=None):
         'id': character.id,
         'name': character.name,
         'profile': character.profile,
+        'custom_prompt': character.custom_prompt,
         'voice_id': character.voice_id,
         'voice': serialize_voice(character.voice, viewer=viewer) if character.voice else None,
         'photo': file_url(character.photo),
@@ -58,6 +72,7 @@ def serialize_character(character: Character, *, viewer=None, friend_id=None):
         'created_at': character.created_at.isoformat(),
         'updated_at': character.updated_at.isoformat(),
         'author': serialize_user(character.user),
+        'ai_config': serialize_character_ai_config(character),
         'is_owner': viewer_id == character.user_id if viewer_id else False,
         'friend_id': friend_id,
     }
@@ -86,5 +101,11 @@ def serialize_friend(friend: Friend):
     return {
         'id': friend.id,
         'created_at': friend.created_at.isoformat(),
+        'memory': {
+            'conversation_summary': friend.conversation_summary,
+            'relationship_memory': friend.relationship_memory,
+            'user_preference_memory': friend.user_preference_memory,
+            'memory_updated_at': friend.memory_updated_at.isoformat() if friend.memory_updated_at else '',
+        },
         'character': serialize_character(friend.character, viewer=friend.user, friend_id=friend.id),
     }

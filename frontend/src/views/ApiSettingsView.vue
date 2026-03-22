@@ -2,7 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import api from '@/api/http'
-import type { AIProviderOption, AISettings } from '@/types/ai-settings'
+import type { AIProviderOption, AISettings, AIRuntimeSummary } from '@/types/ai-settings'
+
+const props = withDefaults(defineProps<{
+  embedded?: boolean
+}>(), {
+  embedded: false,
+})
 
 const chatSavePending = ref(false)
 const asrSavePending = ref(false)
@@ -25,6 +31,7 @@ const modelName = ref('')
 const apiKey = ref('')
 const hasExistingApiKey = ref(false)
 const clearApiKey = ref(false)
+const chatSupportsDashscopeAudio = ref(false)
 const asrEnabled = ref(false)
 const asrApiBase = ref('')
 const asrModelName = ref('')
@@ -33,6 +40,7 @@ const hasExistingAsrApiKey = ref(false)
 const clearAsrApiKey = ref(false)
 const updatedAt = ref('')
 const providerOptions = ref<AIProviderOption[]>([])
+const runtimeSummary = ref<AIRuntimeSummary | null>(null)
 
 const selectedProvider = computed(() => (
   providerOptions.value.find((item) => item.value === provider.value) || providerOptions.value[0]
@@ -51,6 +59,7 @@ const applySettings = (settings: AISettings) => {
   hasExistingApiKey.value = settings.has_api_key
   clearApiKey.value = false
   apiKey.value = ''
+  chatSupportsDashscopeAudio.value = settings.chat_supports_dashscope_audio
   asrEnabled.value = settings.asr_enabled
   asrApiBase.value = settings.asr_api_base
   asrModelName.value = settings.asr_model_name
@@ -69,10 +78,12 @@ const loadSettings = async () => {
     const response = await api.get<{
       settings: AISettings
       providers: AIProviderOption[]
+      runtime_summary: AIRuntimeSummary
     }>('/user/settings/ai/')
 
     providerOptions.value = response.data.providers
     applySettings(response.data.settings)
+    runtimeSummary.value = response.data.runtime_summary
   } catch (error: unknown) {
     const message = '加载 API 设置失败，请稍后重试。'
     chatErrorMessage.value = message
@@ -117,6 +128,7 @@ const handleSaveChatConfig = async () => {
     const response = await api.post<{
       settings: AISettings
       providers: AIProviderOption[]
+      runtime_summary: AIRuntimeSummary
     }>('/user/settings/ai/', {
       enabled: enabled.value,
       provider: provider.value,
@@ -124,10 +136,12 @@ const handleSaveChatConfig = async () => {
       model_name: modelName.value.trim(),
       api_key: apiKey.value.trim(),
       clear_api_key: clearApiKey.value,
+      chat_supports_dashscope_audio: chatSupportsDashscopeAudio.value,
     })
 
     providerOptions.value = response.data.providers
     applySettings(response.data.settings)
+    runtimeSummary.value = response.data.runtime_summary
     chatSuccessMessage.value = '聊天配置已保存。'
   } catch (error: unknown) {
     chatErrorMessage.value = '聊天配置保存失败，请稍后重试。'
@@ -150,6 +164,7 @@ const handleSaveAsrConfig = async () => {
     const response = await api.post<{
       settings: AISettings
       providers: AIProviderOption[]
+      runtime_summary: AIRuntimeSummary
     }>('/user/settings/ai/', {
       asr_enabled: asrEnabled.value,
       asr_api_base: asrApiBase.value.trim(),
@@ -160,6 +175,7 @@ const handleSaveAsrConfig = async () => {
 
     providerOptions.value = response.data.providers
     applySettings(response.data.settings)
+    runtimeSummary.value = response.data.runtime_summary
     asrSuccessMessage.value = '语音识别配置已保存。'
   } catch (error: unknown) {
     asrErrorMessage.value = '语音识别配置保存失败，请稍后重试。'
@@ -257,8 +273,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="rounded-[36px] border border-base-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95))] p-6 shadow-[0_20px_80px_rgba(15,23,42,0.08)] sm:p-8">
+  <section :class="props.embedded ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8'">
+    <div
+      :class="props.embedded
+        ? 'rounded-[32px] border border-base-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95))] p-5 shadow-sm sm:p-6'
+        : 'rounded-[36px] border border-base-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95))] p-6 shadow-[0_20px_80px_rgba(15,23,42,0.08)] sm:p-8'"
+    >
       <div class="flex flex-col gap-5 border-b border-base-200/80 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div class="max-w-3xl">
           <div class="text-xs font-black uppercase tracking-[0.28em] text-sky-600">Runtime Config</div>
@@ -392,6 +412,13 @@ onMounted(() => {
                 <label class="label cursor-pointer justify-start gap-3 p-0">
                   <input v-model="clearApiKey" type="checkbox" class="checkbox checkbox-sm checkbox-error" />
                   <span class="text-sm text-base-content/75">保存时删除当前已保存的 API Key</span>
+                </label>
+              </div>
+
+              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
+                <label class="label cursor-pointer justify-start gap-3 p-0">
+                  <input v-model="chatSupportsDashscopeAudio" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
+                  <span class="text-sm text-base-content/75">这套聊天配置也可用于 DashScope ASR / TTS 代理网关</span>
                 </label>
               </div>
 
@@ -593,6 +620,87 @@ onMounted(() => {
                     <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">Model</div>
                     <div class="mt-1 break-all text-base-content/75">{{ resolvedAsrModelPreview }}</div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-[32px] border border-base-200 bg-white p-6 shadow-[0_14px_50px_rgba(15,23,42,0.06)]">
+            <div class="text-xs font-black uppercase tracking-[0.24em] text-base-content/45">Runtime Summary</div>
+            <h2 class="mt-3 text-xl font-black text-base-content">实际生效摘要</h2>
+
+            <div class="mt-5 space-y-4 text-sm">
+              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">聊天 Runtime</div>
+                <div class="mt-2 font-semibold text-base-content/80">
+                  {{ runtimeSummary?.chat_runtime.label || '未启用' }}
+                </div>
+                <div class="mt-2 break-all text-base-content/65">
+                  {{ runtimeSummary?.chat_runtime.model_name || '未设置模型' }}
+                </div>
+                <div
+                  v-if="runtimeSummary?.chat_runtime_status === 'invalid'"
+                  class="mt-2 text-xs leading-6 text-error"
+                >
+                  当前用户聊天配置不完整，系统不会再静默回退到本地假回复。
+                </div>
+                <div
+                  v-else-if="runtimeSummary?.chat_runtime.reason"
+                  class="mt-2 text-xs leading-6 text-base-content/55"
+                >
+                  {{ runtimeSummary.chat_runtime.reason }}
+                </div>
+              </div>
+
+              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">ASR Runtime</div>
+                <div class="mt-2 font-semibold text-base-content/80">
+                  {{ runtimeSummary?.asr_runtime.label || '未启用' }}
+                </div>
+                <div class="mt-2 break-all text-base-content/65">
+                  {{ runtimeSummary?.asr_runtime.model_name || '未设置模型' }}
+                </div>
+                <div
+                  v-if="runtimeSummary?.dashscope_audio_reuse_source"
+                  class="mt-2 text-xs leading-6 text-base-content/55"
+                >
+                  语音链路复用来源：{{ runtimeSummary.dashscope_audio_reuse_source }}
+                </div>
+              </div>
+
+              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">TTS Runtime</div>
+                <div class="mt-2 font-semibold text-base-content/80">
+                  {{ runtimeSummary?.tts_runtime.label || '未启用' }}
+                </div>
+                <div class="mt-2 break-all text-base-content/65">
+                  {{ runtimeSummary?.tts_runtime.model_name || '未设置模型' }}
+                </div>
+              </div>
+
+              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">最近编辑角色的 AI 摘要</div>
+                <div v-if="runtimeSummary?.recent_character_summary" class="mt-2 space-y-1 text-base-content/75">
+                  <div class="font-semibold text-base-content/85">{{ runtimeSummary.recent_character_summary.name }}</div>
+                  <div>记忆模式：{{ runtimeSummary.recent_character_summary.memory_mode }}</div>
+                  <div>回复风格：{{ runtimeSummary.recent_character_summary.reply_style }}</div>
+                  <div>音色：{{ runtimeSummary.recent_character_summary.voice_name || '未配置' }}</div>
+                </div>
+                <div v-else class="mt-2 text-base-content/65">
+                  还没有可展示的角色。
+                </div>
+              </div>
+
+              <div class="rounded-[24px] border border-base-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-base-content/45">Prompt Layers</div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <span
+                    v-for="layer in runtimeSummary?.prompt_layers || []"
+                    :key="layer"
+                    class="rounded-full border border-base-200 bg-white px-3 py-1 text-xs font-semibold text-base-content/65"
+                  >
+                    {{ layer }}
+                  </span>
                 </div>
               </div>
             </div>

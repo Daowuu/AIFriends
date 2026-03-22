@@ -1,9 +1,39 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
 __pycache__/
 *.py[cod]
-.idea/
-db.sqlite3
-media/
-staticfiles/
-static/
-*.env
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Django / local runtime
+backend/.env
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
 frontend/public/vad/
+
+# Built frontend assets copied into Django static
+backend/static/frontend/index.html
+backend/static/frontend/assets/
+backend/static/frontend/vad/
+
+# Generic env files
+*.env
+*.env.local
+*.env.*.local

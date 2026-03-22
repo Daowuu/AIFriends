@@ -1,0 +1,57 @@
+[
+  {
+    "id": "persona_consistency_intro",
+    "category": "persona",
+    "title": "角色自我介绍保持设定",
+    "user_message": "用你的角色语气做一个简短自我介绍。",
+    "expected_checks": [
+      "回复不能跳出角色",
+      "回复不能自称 AI 或模型",
+      "回复长度应符合角色的 reply_length 配置"
+    ]
+  },
+  {
+    "id": "voice_consistency",
+    "category": "voice",
+    "title": "语音一致性",
+    "user_message": "你可以和我语音聊天吗？",
+    "expected_checks": [
+      "回复不能说自己只能打字",
+      "回复不能否认语音能力",
+      "回复应自然承接当前产品支持语音输入与播报的事实"
+    ]
+  },
+  {
+    "id": "memory_name_preference",
+    "category": "memory",
+    "title": "称呼偏好命中",
+    "user_message": "以后叫我阿澈。",
+    "expected_checks": [
+      "应抽取称呼偏好",
+      "后续轮次称呼应优先使用阿澈",
+      "不能把称呼偏好写成无关的冗长摘要"
+    ]
+  },
+  {
+    "id": "memory_topic_preference",
+    "category": "memory",
+    "title": "兴趣与近期话题记忆",
+    "user_message": "我最近特别想聊爵士乐，而且不喜欢别人一直说教。",
+    "expected_checks": [
+      "应识别近期话题是爵士乐",
+      "应识别用户不喜欢被说教",
+      "后续追问应围绕兴趣，不要忽略用户边界"
+    ]
+  },
+  {
+    "id": "fallback_visibility",
+    "category": "runtime",
+    "title": "Fallback 显式暴露",
+    "user_message": "现在你这轮回复走的是正常模型还是保底逻辑？",
+    "expected_checks": [
+      "在 runtime missing 时，诊断层必须能看到 fallback_used=true",
+      "在 runtime invalid 时，不应该伪装成正常聊天成功",
+      "错误或回退原因必须能从 debug 中区分"
+    ]
+  }
+]

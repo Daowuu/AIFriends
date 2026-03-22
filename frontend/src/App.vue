@@ -13,7 +13,7 @@ const searchQuery = ref('')
 const primaryNavItems = [
   { to: '/', label: '首页', icon: 'home' },
   { to: '/friends', label: '好友', icon: 'friend' },
-  { to: '/workspace', label: '创作', icon: 'create' },
+  { to: '/studio', label: 'AI Studio', icon: 'create' },
 ] as const
 
 const isChatRoute = computed(() => route.name === 'chat')
@@ -42,20 +42,35 @@ watch(() => route.query.q, (value) => {
 </script>
 
 <template>
-  <div data-theme="cupcake" class="min-h-screen bg-[#f9fafb]">
+  <div
+    data-theme="cupcake"
+    class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(244,211,94,0.18),_transparent_24%),radial-gradient(circle_at_bottom_right,_rgba(52,211,153,0.14),_transparent_22%),linear-gradient(180deg,#fcfbf7_0%,#f6f3ec_100%)]"
+  >
     <div class="flex min-h-screen">
       <aside
         v-if="!isChatRoute"
-        class="hidden w-[230px] shrink-0 border-r border-base-200 bg-base-100 lg:flex lg:flex-col"
+        class="hidden w-[248px] shrink-0 border-r border-[#ded4c3] bg-[linear-gradient(180deg,rgba(255,251,243,0.9),rgba(248,243,232,0.92))] backdrop-blur lg:flex lg:flex-col"
       >
-        <nav class="flex-1 px-5 py-4">
+        <div class="border-b border-[#e6ddcd] px-5 py-6">
+          <RouterLink to="/" class="inline-flex items-center gap-3 text-[#1b2c27]">
+            <span class="grid h-11 w-11 place-items-center rounded-2xl bg-[#16231f] text-[#f6ead2] shadow-[0_10px_24px_rgba(22,35,31,0.18)]">
+              <AppIcon name="spark" icon-class="h-5 w-5" />
+            </span>
+            <span>
+              <span class="block text-lg font-black tracking-tight">AIFriends</span>
+              <span class="block text-xs font-bold uppercase tracking-[0.24em] text-[#8a7757]">AI Companion Studio</span>
+            </span>
+          </RouterLink>
+        </div>
+
+        <nav class="flex-1 px-5 py-5">
           <ul class="space-y-2">
             <li v-for="item in primaryNavItems" :key="item.to">
               <RouterLink
                 :to="item.to"
-                class="flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-semibold text-base-content/80 transition hover:bg-base-200/70"
-                active-class="bg-base-200 text-base-content"
-                exact-active-class="bg-base-200 text-base-content"
+                class="flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] font-semibold text-[#43514b] transition hover:bg-white/80 hover:text-[#15231f]"
+                active-class="bg-[#16231f] text-[#f7f1e5] shadow-[0_10px_22px_rgba(22,35,31,0.14)]"
+                exact-active-class="bg-[#16231f] text-[#f7f1e5] shadow-[0_10px_22px_rgba(22,35,31,0.14)]"
               >
                 <AppIcon :name="item.icon" icon-class="h-5 w-5" />
                 {{ item.label }}
@@ -63,15 +78,19 @@ watch(() => route.query.q, (value) => {
             </li>
           </ul>
         </nav>
-        <div class="px-10 pb-6 text-sm text-base-content/10">
-          {{ user.isAuthenticated ? user.displayName : 'Guest' }}
+        <div class="px-5 pb-6">
+          <div class="rounded-[24px] border border-[#e3d9c7] bg-white/72 px-4 py-4 text-sm text-[#56635d] shadow-sm">
+            <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">Workspace</div>
+            <div class="mt-2 font-bold text-[#1b2c27]">{{ user.isAuthenticated ? user.displayName : 'Guest' }}</div>
+            <div class="mt-1 text-xs">在这里管理角色、模型和语音。</div>
+          </div>
         </div>
       </aside>
 
       <div class="flex min-h-screen min-w-0 flex-1 flex-col">
         <header
           v-if="!isChatRoute"
-          class="sticky top-0 z-20 border-b border-base-200 bg-base-100/95 backdrop-blur supports-[backdrop-filter]:bg-base-100/80"
+          class="sticky top-0 z-20 border-b border-[#e5dccd] bg-[rgba(252,249,242,0.82)] backdrop-blur supports-[backdrop-filter]:bg-[rgba(252,249,242,0.72)]"
         >
           <div class="flex h-[74px] items-center gap-4 px-4 sm:px-6">
             <div class="dropdown lg:hidden">
@@ -95,29 +114,29 @@ watch(() => route.query.q, (value) => {
               </ul>
             </div>
 
-            <div class="flex min-w-[180px] items-center gap-3 border-r border-base-200 pr-6">
+            <div class="flex min-w-[180px] items-center gap-3 border-r border-[#e6ddcd] pr-6">
               <AppIcon name="menu" icon-class="hidden h-5 w-5 lg:block" />
-              <RouterLink to="/" class="text-[18px] font-black tracking-tight text-base-content">
+              <RouterLink to="/" class="text-[18px] font-black tracking-tight text-[#15231f]">
                 AIFriends
               </RouterLink>
             </div>
 
             <div class="flex flex-1 justify-center">
               <label
-                class="input input-bordered flex h-11 w-full max-w-[580px] items-center gap-3 rounded-full border-base-300 bg-base-100 px-4 shadow-none"
+                class="flex h-11 w-full max-w-[580px] items-center gap-3 rounded-full border border-[#d9cdb6] bg-white/86 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
               >
-                <AppIcon name="search" icon-class="h-4 w-4 text-base-content/45" />
+                <AppIcon name="search" icon-class="h-4 w-4 text-[#7e6e56]" />
                 <input
                   v-model="searchQuery"
                   type="text"
-                  class="grow text-sm"
+                  class="grow bg-transparent text-sm outline-none"
                   placeholder="搜索你感兴趣的内容"
                   @keydown.enter.prevent="handleSearch"
                 />
               </label>
               <button
                 v-if="showSearchAction"
-                class="btn btn-ghost ml-2 hidden rounded-full border border-base-300 px-5 lg:inline-flex"
+                class="ml-2 hidden rounded-full border border-[#d4c7ae] bg-white/72 px-5 text-sm font-bold text-[#22302b] transition hover:bg-[#fff7e7] lg:inline-flex"
                 @click="handleSearch"
               >
                 <AppIcon name="search" icon-class="h-4 w-4" />
@@ -132,7 +151,7 @@ watch(() => route.query.q, (value) => {
             </div>
 
             <div v-else class="dropdown dropdown-end ml-auto">
-              <label tabindex="0" class="btn btn-ghost flex items-center gap-3 rounded-xl px-3">
+              <label tabindex="0" class="btn btn-ghost flex items-center gap-3 rounded-2xl px-3 hover:bg-white/55">
                 <div class="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-base-200 font-bold">
                   <img
                     v-if="user.userInfo?.avatar"
@@ -160,12 +179,6 @@ watch(() => route.query.q, (value) => {
                     编辑资料
                   </RouterLink>
                 </li>
-                <li>
-                  <RouterLink to="/settings/api">
-                    <AppIcon name="settings" icon-class="h-4 w-4" />
-                    API 设置
-                  </RouterLink>
-                </li>
                 <li v-if="user.userInfo">
                   <RouterLink :to="`/space/${user.userInfo.id}`">
                     <AppIcon name="friend" icon-class="h-4 w-4" />
@@ -173,9 +186,9 @@ watch(() => route.query.q, (value) => {
                   </RouterLink>
                 </li>
                 <li>
-                  <RouterLink to="/workspace">
+                  <RouterLink to="/studio">
                     <AppIcon name="spark" icon-class="h-4 w-4" />
-                    我的角色
+                    AI Studio
                   </RouterLink>
                 </li>
                 <li>

@@ -79,6 +79,7 @@ def message_chat_view(request):
     friend = get_object_or_404(
         Friend.objects.select_related(
             'character',
+            'character__voice',
             'character__user',
             'character__user__profile',
         ),
@@ -92,3 +93,46 @@ def message_chat_view(request):
     )
     response['Cache-Control'] = 'no-cache'
     return response
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@renderer_classes([JSONRenderer])
+def reset_conversation_view(request):
+    try:
+        friend_id = int(request.data.get('friend_id', 0) or 0)
+    except (TypeError, ValueError):
+        return Response({'detail': 'friend_id 格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    mode = str(request.data.get('mode', 'history') or 'history').strip().lower()
+    if mode not in {'history', 'full'}:
+        return Response({'detail': 'mode 只能是 history 或 full。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if friend_id <= 0:
+        return Response({'detail': '缺少有效的 friend_id。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    friend = get_object_or_404(
+        Friend.objects.select_related('character'),
+        pk=friend_id,
+        user=request.user,
+    )
+
+    deleted_count, _ = Message.objects.filter(friend=friend).delete()
+
+    if mode == 'full':
+        friend.conversation_summary = ''
+        friend.relationship_memory = ''
+        friend.user_preference_memory = ''
+        friend.memory_updated_at = None
+        friend.save(update_fields=[
+            'conversation_summary',
+            'relationship_memory',
+            'user_preference_memory',
+            'memory_updated_at',
+        ])
+
+    return Response({
+        'detail': '已重置聊天窗口。' if mode == 'history' else '已清空这段会话的长期记忆。',
+        'mode': mode,
+        'deleted_message_count': deleted_count,
+    }, status=status.HTTP_200_OK)

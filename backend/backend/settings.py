@@ -25,6 +25,13 @@ mimetypes.add_type('model/onnx', '.onnx', True)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def get_env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.lower() in {'1', 'true', 'yes', 'on'}
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -144,6 +151,24 @@ if DEBUG:
 
 MEDIA_URL = os.getenv('DJANGO_MEDIA_URL', '/media/')
 MEDIA_ROOT = BASE_DIR / 'media'
+
+AI_RUNTIME = {
+    'chat': {
+        'provider': os.getenv('API_PROVIDER', '').strip() or 'aliyun',
+        'api_key': os.getenv('API_KEY', '').strip(),
+        'api_base': os.getenv('API_BASE', '').strip(),
+        'model_name': os.getenv('CHAT_MODEL', 'qwen-plus').strip() or 'qwen-plus',
+        'supports_dashscope_audio': get_env_bool('CHAT_SUPPORTS_DASHSCOPE_AUDIO', False),
+    },
+    'asr': {
+        'api_key': os.getenv('ASR_API_KEY', '').strip(),
+        'api_base': os.getenv('ASR_API_BASE', '').strip(),
+        'model_name': os.getenv('ASR_MODEL', 'qwen3-asr-flash').strip() or 'qwen3-asr-flash',
+    },
+    'tts': {
+        'model_name': os.getenv('TTS_MODEL', 'cosyvoice-v3.5-plus').strip() or 'cosyvoice-v3.5-plus',
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

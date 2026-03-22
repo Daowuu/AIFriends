@@ -1,346 +1,841 @@
 # AI Overview
 
-这份文档只总结项目中和 AI 直接相关的部分，方便后续单独维护、排查和扩展。
+这份文档只讨论 AIFriends 的 **AI 工程**。  
+它不是系统部署说明，也不是页面功能清单。  
+它回答的是：
 
-## 1. 当前 AI 能力
+1. AIFriends 的 AI 到底要解决什么问题
+2. 当前 AI 运行链路由哪些层组成
+3. 每一层的输入、输出、约束和失败模式是什么
+4. 为什么当前优先做记忆、角色一致性、语音一致性，而不是先做 RAG/Agent
+5. 后续应该如何继续提升
 
-项目里已经接入的 AI 能力主要有 4 类：
+---
 
-1. 聊天模型
-- 角色对话走兼容 OpenAI Chat Completions 的接口
-- 当前支持的 provider：
-  - 阿里云百炼
-  - DeepSeek
-  - MiniMax
-  - OpenAI
-  - 自定义兼容 OpenAI 接口
+## 1. AI 产品目标
 
-2. 角色系统提示词
-- 每次聊天都会构造角色专属 system prompt
-- 包含角色名、角色设定、作者、语音约束
-- 支持数据库中的系统提示词模板
+AIFriends 当前不是：
 
-3. 语音识别 ASR
-- 前端录音后上传音频到后端
-- 后端当前只接阿里云百炼兼容 ASR
-- 默认模型：`qwen3-asr-flash`
+- 通用 Agent
+- 知识检索系统
+- 工具调用平台
 
-4. 语音播报 TTS
-- 角色回复后可请求后端 TTS 音频
-- 后端当前接阿里云 CosyVoice
-- 支持系统音色和自定义 `voice_id`
-- 如果服务端 TTS 失败，前端仍有浏览器 `speechSynthesis` 兜底
+它当前的 AI 目标更窄，也更明确：
 
-## 2. 后端 AI 相关模型
+### 1.1 角色稳定
 
-文件：
-- [models.py](/Users/apple/project/AIFrients/backend/web/models.py)
+角色应该长期“像自己”：
 
-核心模型：
+- 说话风格稳定
+- 人设边界稳定
+- 不轻易跳出角色
+- 不因为上下文变长就变味
 
-1. `SystemPrompt`
-- 用于保存聊天系统提示词模板
-- 当前角色聊天使用的 key 是 `character_chat`
+### 1.2 关系连续
 
-2. `UserAISettings`
-- 保存每个用户自己的 AI 配置
-- 主要字段：
-  - `enabled`
-  - `provider`
-  - `api_key`
-  - `api_base`
-  - `model_name`
-  - `asr_enabled`
-  - `asr_api_key`
-  - `asr_api_base`
-  - `asr_model_name`
+角色不是一次性回复器，而是持续会话对象。  
+它需要在多轮对话里记住：
 
-3. `Voice`
-- 保存角色可用音色
-- 主要字段：
-  - `provider`
-  - `source`
-  - `model_name`
-  - `voice_code`
-  - `description`
-  - `language`
-  - `is_active`
+- 用户偏好怎么称呼
+- 最近在聊什么
+- 用户喜欢和不喜欢什么
+- 角色与用户当前关系氛围是什么
 
-4. `Character.voice`
-- 角色和音色关联
-- 决定 TTS 时使用哪个音色
+### 1.3 多模态一致
 
-## 3. 聊天模型链路
+无论用户是：
 
-文件：
-- [chat_services.py](/Users/apple/project/AIFrients/backend/web/chat_services.py)
-- [message_views.py](/Users/apple/project/AIFrients/backend/web/message_views.py)
-- [ai_settings_service.py](/Users/apple/project/AIFrients/backend/web/ai_settings_service.py)
+- 打字
+- 语音输入
+- 听角色播报
 
-### 3.1 运行时模型配置
+都应该进入同一套角色逻辑。  
+模型不能一边被播报成声音，一边又说“我只能打字”。
 
-`get_runtime_ai_config(user)` 的优先级：
+### 1.4 创作者可控
 
-1. 用户设置页里启用的聊天模型配置
-2. 服务端环境变量：
-  - `API_KEY`
-  - `API_BASE`
-  - `CHAT_MODEL`
+角色行为不能只靠 profile 文案暗示。  
+创作者需要有结构化手段控制：
 
-### 3.2 聊天请求流程
+- 回复风格
+- 回复长度
+- 主动性
+- 记忆强度
+- 角色边界
+- 自定义 prompt 规则
 
-接口：
-- `POST /api/friend/message/chat/`
+---
 
-流程：
+## 2. 为什么现在不把主线放在 RAG / Agent
 
-1. 前端发送 `friend_id + message`
-2. 后端根据角色构造聊天 messages
-3. 注入角色专属 system prompt
-4. 使用兼容 OpenAI 的流式聊天接口返回 SSE
-5. 回复结束后写入 `Message`
+这是个重要前提。
 
-### 3.3 角色 system prompt
+### 2.1 当前主要问题不是“查不到知识”
 
-`build_system_prompt(friend)` 当前会拼接：
+AIFriends 当前更常见的问题是：
 
-- 平台级 system prompt
-- 运行时语音规则
+- 角色失真
+- 长对话遗忘
+- 语音链路和内容认知不一致
+- 创作者很难稳定控制角色
+
+这些问题主要靠：
+
+- Prompt 工程
+- 记忆工程
+- Runtime 透明性
+- 创作者配置工程
+
+而不是靠 RAG。
+
+### 2.2 RAG 不是当前第一收益点
+
+RAG 更适合：
+
+- 角色设定资料很多
+- 用户频繁追问设定细节
+- 角色需要引用外部文本事实
+
+当前 AIFriends 的核心体验是“陪伴和关系”，不是“资料问答”。  
+所以当前优先级应该是：
+
+1. 角色稳定性
+2. 轻量记忆
+3. 语音一致性
+4. 运行时可诊断
+
+### 2.3 Agent / 工具调用也不是当前主线
+
+角色对话产品如果过早引入 Agent，常见副作用是：
+
+- 角色味变弱
+- 工具边界变模糊
+- 回复中出现“伪执行”
+- 工程复杂度迅速上升
+
+所以当前只保留 **工具边界预留字段**，不启用真实工具执行。
+
+---
+
+## 3. AI 工程分层
+
+当前 AI 工程按 5 层理解最清晰：
+
+1. `runtime`
+2. `conversation`
+3. `memory`
+4. `diagnostics`
+5. `persona`
+
+这 5 层不是抽象分类，而是后续持续演进时真正的责任边界。
+
+---
+
+## 4. Runtime Layer
+
+### 4.1 目标
+
+明确回答：
+
+> 这一轮聊天 / ASR / TTS 到底是谁在跑？
+
+如果没有这层，所有 AI 问题最后都会变成“像是模型问题，但不确定到底是不是配置问题”。
+
+### 4.2 输入
+
+Runtime 层当前读取：
+
+- 用户聊天模型设置
+- 用户 ASR 设置
+- 服务端默认环境变量
+- DashScope 音频复用标记
+
+### 4.3 输出
+
+Runtime 层对外提供：
+
+- `chat_runtime`
+- `asr_runtime`
+- `tts_runtime`
+- `chat_runtime_status`
+- `chat_runtime_reason`
+- `dashscope_audio_reuse_source`
+
+### 4.4 状态语义
+
+聊天 runtime 目前分 3 种：
+
+#### `ok`
+
+表示当前有可用模型配置，可以正常聊天。
+
+#### `invalid`
+
+表示用户**显式启用了**个人聊天配置，但关键字段损坏：
+
+- API Key 缺失
+- API Base 缺失
+- model 名缺失
+
+这类情况不能假装成正常聊天。
+
+#### `missing`
+
+表示当前没有任何可用聊天模型。  
+只有这一类情况才允许进入本地 fallback。
+
+### 4.5 为什么这层重要
+
+它解决的是 AI 工程里最容易被忽略的问题：
+
+- 用户说“模型坏了”
+- 实际是 key 没填
+- 或者走错了 provider
+- 或者聊天模型可用，但音频链路根本没复用上
+
+没有 Runtime Layer，后续所有诊断都会变钝。
+
+### 4.6 当前实现逻辑
+
+Runtime Layer 当前实际按下面的顺序工作：
+
+#### 聊天 runtime 解析
+
+1. 先读取用户自己的聊天模型设置
+2. 如果用户没启用个人配置，转去看服务端环境变量
+3. 如果用户启用了个人配置，但 key / base / model 缺失，返回 `invalid`
+4. 如果用户和环境都没有可用聊天配置，返回 `missing`
+5. 只有拿到完整配置时，才返回 `ok`
+
+也就是说，聊天链路不是“只要失败就随便回退”，而是：
+
+- 用户配置损坏：报错
+- 完全没配置：fallback
+- 配置完整：正常模型
+
+#### DashScope 音频复用解析
+
+当前复用判定顺序是：
+
+1. 用户显式勾选 `chat_supports_dashscope_audio`
+2. provider 本身是阿里云
+3. `api_base` 命中 DashScope 域名兜底
+
+同时会输出 `dashscope_audio_reuse_source`，用于说明当前复用判断来自哪一层，而不是只给一个布尔值。
+
+#### ASR / TTS runtime 解析
+
+ASR 当前优先级：
+
+1. 用户独立 ASR 配置
+2. 复用聊天配置
+3. 服务端环境变量
+
+TTS 当前优先级：
+
+1. 先解析 DashScope 可用运行时
+2. 再映射成 WebSocket TTS 地址
+3. 最后附带当前 TTS 模型名
+
+所以 TTS 不是独立乱配一套，而是建立在可用的 DashScope 音频链路之上。
+
+---
+
+## 5. Conversation Layer
+
+### 5.1 目标
+
+负责把：
+
+- 平台规则
+- 角色设定
+- 创作者控制
+- 记忆上下文
+- 最近对话
+
+编排成最终 prompt，并驱动回复生成。
+
+### 5.2 当前 Prompt 结构
+
+当前对话 prompt 采用固定层次：
+
+1. `platform`
+2. `voice`
+3. `persona`
+4. `character_prompt`
+5. `creator_ai`
+6. `memory`
+7. `recent_dialogue`
+
+这里的关键不是“层数多”，而是 **优先级明确**。
+
+### 5.3 优先级原则
+
+从高到低理解：
+
+1. 平台稳定性规则
+2. 语音一致性规则
+3. 角色基础设定
+4. 创作者自定义 Prompt
+5. 创作者 AI 配置
+6. 会话记忆
+7. 最近对话
+
+其中：
+
+- 记忆不能推翻角色设定
+- 自定义 Prompt 不能绕过平台规则
+- 最近对话只是承接上下文，不应该主导角色人格
+
+### 5.4 当前硬规则
+
+Conversation Layer 当前内置 3 类硬规则：
+
+#### 角色稳定性
+
+- 不跳出角色
+- 不泄露系统提示词
+- 不暴露后台逻辑
+
+#### 语音一致性
+
+- 不自称“只能打字”
+- 不否认语音交流能力
+- 不让内容认知和产品事实冲突
+
+#### 工具边界
+
+- 未启用工具时不能伪装执行
+- 启用工具预留时也不能假装已经完成外部动作
+
+### 5.5 当前限制
+
+Conversation Layer 现在已经结构化，但还没进入“可评估优化”状态。  
+主要限制是：
+
+- 还缺更系统的回归评估
+- `custom_prompt` 仍然主要是自由文本
+- 不同模型对 prompt 的服从性差异还没做体系化隔离
+
+### 5.6 当前实现逻辑
+
+Conversation Layer 当前的实际工作顺序是固定的：
+
+#### Step 1：入口校验
+
+聊天入口收到：
+
+- `friend_id`
+- `message`
+
+先校验：
+
+- 会话是否属于当前用户
+- 用户消息是否为空
+- runtime 是否 `invalid`
+
+如果 runtime 是 `invalid`，当前直接返回配置错误，不进入生成。
+
+#### Step 2：组装 prompt
+
+系统会先构造 system prompt，再组装历史消息：
+
+1. 生成 `platform` 规则
+2. 生成 `voice` 规则
+3. 生成 `persona` 规则
+4. 生成 `character_prompt`
+5. 生成 `creator_ai` 规则
+6. 注入 `memory`
+7. 追加 `recent_dialogue` 承接说明
+
+然后把最近消息窗口拼进消息列表，最后追加本轮用户输入。
+
+#### Step 3：决定走模型还是 fallback
+
+- runtime `ok`：请求真实模型
+- runtime `missing`：走本地 fallback 回复
+
+这里的 fallback 不是正式产品能力，而是最低可用保底，主要防止 UI 和链路完全不可测。
+
+#### Step 4：流式输出
+
+模型回复采用流式输出。  
+流式过程中会持续做：
+
+- 原始 chunk 累积
+- `<think>` 内容清洗
+- 增量 visible text 计算
+
+所以前端看到的是已经经过“可见内容过滤”的增量文本，而不是模型原始输出。
+
+#### Step 5：持久化与收尾
+
+当 assistant 最终回复存在时：
+
+1. 落用户消息
+2. 落 assistant 消息
+3. 更新会话记忆
+4. 生成本轮 debug 快照
+5. 通过 SSE `meta.debug` 回传调试结构
+
+因此，Conversation Layer 最终产出的不只是“文字回复”，而是一整套：
+
+- 回复文本
+- 消息落库
+- 记忆更新结果
+- 调试信息
+
+#### Step 6：错误处理
+
+如果模型流中途失败：
+
+- 当前会返回错误
+- 不伪装成成功消息
+- 同时写入 `error_tag`
+
+这样 Studio 至少能知道这轮是 provider 错误，不是角色逻辑本身有问题。
+
+---
+
+## 6. Memory Layer
+
+### 6.1 目标
+
+Memory Layer 解决的不是知识检索，而是：
+
+> 角色能否在关系上连续？
+
+### 6.2 当前记忆结构
+
+当前使用三段式轻量记忆：
+
+- `conversation_summary`
+- `relationship_memory`
+- `user_preference_memory`
+
+这是当前阶段最合适的平衡：
+
+- 比纯截历史更稳
+- 比上向量库更轻
+- 足够服务陪伴聊天
+
+### 6.3 设计原则
+
+#### 只记稳定信息
+
+不记流水账，不记每一轮说了什么，而是提炼：
+
+- 关系状态
+- 用户偏好
+- 长对话里的稳定事实
+
+#### 不跨角色共享
+
+同一用户和不同角色之间的关系、偏好，不应混用。
+
+#### 不高于角色设定
+
+记忆是补充，不是重写角色本身。
+
+### 6.4 当前刷新策略
+
+当前刷新已从“简单取模”收成更保守的策略：
+
+- 按有效 assistant 轮次触发
+- 有最小新增内容阈值
+- 有刷新失败冷却
+- 同步 best-effort，不阻塞主聊天完成
+
+### 6.5 当前失败模式
+
+当前 Memory Layer 明确处理这些状态：
+
+- `disabled`
+- `not_triggered`
+- `cooldown`
+- `empty_transcript`
+- `unsupported_json_mode`
+- `provider_error`
+- `model_refresh`
+
+这很关键，因为没有失败分类，记忆问题最后就只会被描述成“好像没记住”。
+
+### 6.6 当前最值得继续提升的地方
+
+Memory Layer 后续优化的重点应该是：
+
+- 更稳的偏好抽取
+- 更稳的关系记忆更新
+- 更少的摘要漂移
+- 更少的失败重试噪音
+
+而不是直接上向量库。
+
+### 6.7 当前实现逻辑
+
+Memory Layer 当前分成两条支线：
+
+#### A. 轻量启发式偏好提取
+
+每次用户发言后，会先做一轮便宜的启发式提取。  
+当前重点抽这几类：
+
+- 称呼偏好
+- 喜欢什么
+- 不喜欢什么
+- 最近想聊什么
+
+提取后会做：
+
+1. 文本规范化
+2. 去重
+3. 长度截断
+4. 回写 `user_preference_memory`
+
+这条链不依赖额外模型，成本低，适合每轮都做。
+
+#### B. 模型摘要刷新
+
+摘要刷新不会每轮都触发，而是先经过一层 gating：
+
+1. `memory_mode` 是否开启
+2. 会话摘要是否为空
+3. 自上次刷新后，assistant 轮次是否达到阈值
+4. 最近消息字符量是否足够
+5. 是否仍处于刷新失败冷却窗口
+
+只有都通过，才会进入模型摘要刷新。
+
+#### 摘要刷新输入
+
+模型摘要刷新时会给模型这些内容：
+
 - 角色名
 - 角色设定
-- 语音设定
-- 作者
+- 已有摘要
+- 已有关系记忆
+- 已有偏好记忆
+- 最近若干轮对话 transcript
 
-补充说明：
-- 当前已经显式约束模型不要说自己“不能语音”“只是文本模型”
-- 这个约束是运行时直接拼进去的，不依赖数据库默认值是否更新
+目标不是让模型重写角色，而是从最近对话中提炼稳定信息。
 
-### 3.4 think 过滤
+#### 摘要刷新输出
 
-聊天链路会过滤 `<think>...</think>`，避免推理内容显示到前端。
+模型必须返回 3 个键：
 
-## 4. 用户 AI 设置
+- `conversation_summary`
+- `relationship_memory`
+- `user_preference_memory`
 
-文件：
-- [ai_settings_service.py](/Users/apple/project/AIFrients/backend/web/ai_settings_service.py)
-- [ai_settings_views.py](/Users/apple/project/AIFrients/backend/web/ai_settings_views.py)
-- [ApiSettingsView.vue](/Users/apple/project/AIFrients/frontend/src/views/ApiSettingsView.vue)
+系统会逐字段比较，如果值变了才更新数据库。
 
-### 4.1 聊天模型设置
+#### JSON 兼容处理
 
-设置页支持：
-- 单独启用聊天模型配置
-- 选择 provider
-- 配置 `API Key / API Base / Model`
-- 测试聊天模型连接
+如果 provider 不支持 `response_format=json_object`：
 
-默认 provider 预设：
-- 阿里云百炼
-- DeepSeek
-- MiniMax
-- OpenAI
-- 自定义兼容接口
+1. 先尝试标准 JSON 模式
+2. 失败后退回普通文本模式
+3. 再从文本里抽 JSON 对象
 
-### 4.2 ASR 设置
+如果仍失败，则标记为：
 
-设置页支持：
-- 单独启用 ASR 配置
-- 配置 `ASR API Key / API Base / Model`
-- 测试 ASR 连接
+- `unsupported_json_mode`
+- 或 `provider_error`
 
-当前 ASR 默认值：
-- `ASR_API_BASE = https://dashscope.aliyuncs.com/compatible-mode/v1`
-- `ASR_MODEL = qwen3-asr-flash`
+#### 为什么仍保持同步 best-effort
 
-### 4.3 DashScope 复用规则
+当前还没引入后台队列，所以记忆刷新仍在请求链内完成。  
+但它已经被收得比较保守：
 
-`get_dashscope_runtime_config(user)` 当前优先级：
+- 不是每轮都跑
+- 有最小长度阈值
+- 有失败冷却
+- 失败不打断主回复
 
-1. 用户单独保存的 ASR 配置
-2. 用户聊天配置中可识别为 DashScope 的聊天配置
-3. 服务端环境变量：
-  - `ASR_API_KEY`
-  - `ASR_API_BASE`
-  - `ASR_MODEL`
-  - 或回退到 `API_KEY / API_BASE`
+这就是当前阶段的工程折中。
 
-## 5. 语音识别 ASR
+---
 
-文件：
-- [asr_views.py](/Users/apple/project/AIFrients/backend/web/asr_views.py)
-- [InputField.vue](/Users/apple/project/AIFrients/frontend/src/components/character/chat_field/input_field/InputField.vue)
+## 7. Diagnostics Layer
 
-接口：
-- `POST /api/friend/message/asr/`
+### 7.1 目标
 
-流程：
+把 AI 从“黑盒聊天”变成“可诊断的工程系统”。
 
-1. 前端录音或 VAD 截取音频
-2. 前端把音频转成 `data:audio/...` Data URL
-3. 后端用兼容 OpenAI 的方式请求阿里云 ASR
-4. 返回识别文本
-5. 前端再把文本作为聊天消息发给聊天接口
+### 7.2 当前调试输出
 
-前端语音输入当前支持：
-- 实时 VAD 自动断句
-- 手动录音
-- 麦克风设备选择
-- 麦克风可用性探测
-- 过滤 Continuity / iPhone 这类不稳定设备
+当前主要有两类诊断：
 
-## 6. 语音播报 TTS
+#### 实时诊断
 
-文件：
-- [tts_views.py](/Users/apple/project/AIFrients/backend/web/tts_views.py)
-- [ChatField.vue](/Users/apple/project/AIFrients/frontend/src/components/character/chat_field/ChatField.vue)
+通过 SSE `meta.debug` 返回：
 
-接口：
-- `POST /api/friend/message/tts/`
-- `POST /api/create/character/voice/preview/`
+- `prompt_layers`
+- `memory_injection`
+- `memory_update`
+- `runtime_source`
+- `fallback_used`
+- `error_tag`
 
-### 6.1 实际对话 TTS
+#### 最近实验快照
 
-`/api/friend/message/tts/` 用于角色正式回复后的语音播报。
+保存到会话对象中，用于 Studio 展示最近一次实验态，而不是只展示静态角色信息。
 
-逻辑：
+### 7.3 这一层为什么重要
 
-1. 根据 `friend_id` 找到角色
-2. 解析角色音色
-3. 获取 DashScope 运行时配置
-4. 调用 CosyVoice 合成音频
-5. 返回 `audio/mpeg`
+它让我们能区分：
 
-### 6.2 音色试听
+- 角色失真是 prompt 问题还是模型问题
+- 是没注入记忆，还是记忆没更新
+- 是 fallback，还是正常模型回复
+- 是 provider 错误，还是用户配置损坏
 
-`/api/create/character/voice/preview/` 用于创建/编辑角色时试听音色，不要求先保存角色。
+### 7.4 当前还不够的地方
 
-### 6.3 前端播放策略
+Diagnostics Layer 仍然偏轻。  
+后续可以继续增强：
 
-前端 `speakReply()` 当前优先级：
+- 延迟数据
+- provider 错误分类
+- prompt 版本标记
+- 评估结果对照
 
-1. 优先请求后端 TTS 音频
-2. 后端失败时回退浏览器 `speechSynthesis`
+但现在这层已经足够支撑下一轮优化，而不是继续盲改 prompt。
 
-另外前端已经处理了：
-- 播报时暂停实时监听
-- 播报结束恢复监听
-- 避免角色语音被再次识别成用户输入
+### 7.5 当前实现逻辑
 
-## 7. 角色音色体系
+Diagnostics Layer 当前有两种落点：
 
-文件：
-- [character_views.py](/Users/apple/project/AIFrients/backend/web/character_views.py)
-- [CharacterForm.vue](/Users/apple/project/AIFrients/frontend/src/components/CharacterForm.vue)
-- [CreateCharacterView.vue](/Users/apple/project/AIFrients/frontend/src/views/CreateCharacterView.vue)
-- [UpdateCharacterView.vue](/Users/apple/project/AIFrients/frontend/src/views/UpdateCharacterView.vue)
+#### A. 实时调试信息
 
-### 7.1 系统音色
+每轮聊天完成后，SSE 会额外返回一段 `meta.debug`。  
+它不承载用户可见内容，只承载工程态信息：
 
-通过迁移预置了一批系统音色，存储在 `Voice` 表中。
+- 本轮用了哪些 prompt layers
+- 本轮注入了哪些记忆
+- 记忆是否触发更新
+- 当前 runtime 来源
+- 是否走了 fallback
+- 是否出现错误标签
 
-### 7.2 自定义音色
+这层的设计重点是“语义稳定”，不是内容多。
 
-用户可以填写：
-- 自定义音色名
-- 自定义 `voice_id`
-- 对应模型名
-- 描述
+#### B. 最近实验快照
 
-本质上就是把阿里云返回的 `voice_id` 保存为 `Voice(source='custom')`。
+每个会话还会保存最近一次调试快照。  
+它用于 Studio 的“最近一次实验结果”展示，避免前端只能依赖当前页面内存态。
 
-### 7.3 角色音色管理接口
+快照里重点保留：
 
-接口：
-- `GET /api/create/character/voice/list/`
-- `POST /api/create/character/voice/save/`
-- `POST /api/create/character/voice/<voice_id>/remove/`
-- `POST /api/create/character/voice/preview/`
+- prompt layers
+- memory injection
+- memory update
+- runtime source
+- fallback used
+- error tag
 
-## 8. 前端 AI 相关组件
+#### 为什么要同时保留实时和快照
 
-### 8.1 聊天页
+因为这两种用途不同：
 
-文件：
-- [ChatView.vue](/Users/apple/project/AIFrients/frontend/src/views/ChatView.vue)
-- [ChatField.vue](/Users/apple/project/AIFrients/frontend/src/components/character/chat_field/ChatField.vue)
+- 实时 debug：给当前这一轮试聊使用
+- 最近快照：给 Studio 做跨刷新、跨页面的回显
 
-负责：
-- 独立聊天页
-- 加载角色详情
-- 自动建会话
-- 渲染消息、输入区、语音播报
+如果只有实时 SSE，页面一刷新就什么都没了。  
+如果只有数据库快照，又不适合当前轮细粒度调试。
 
-### 8.2 语音输入组件
+---
 
-文件：
-- [InputField.vue](/Users/apple/project/AIFrients/frontend/src/components/character/chat_field/input_field/InputField.vue)
+## 8. Persona Layer
 
-负责：
-- 文字/语音模式切换
-- 实时监听
-- 手动录音
-- 麦克风设备管理
-- ASR 上传
+### 8.1 目标
 
-### 8.3 角色音色配置组件
+让创作者能“稳定地造角色”，而不是碰运气。
 
-文件：
-- [CharacterForm.vue](/Users/apple/project/AIFrients/frontend/src/components/CharacterForm.vue)
+### 8.2 当前组成
 
-负责：
-- 角色音色选择
-- 自定义音色录入
-- 音色试听
+Persona Layer 当前由两部分组成：
 
-## 9. AI 相关接口清单
+#### 面向用户的角色信息
 
-### 聊天
-- `POST /api/friend/message/chat/`
-- `GET /api/friend/message/history/`
+- `name`
+- `profile`
+- 头像
+- 聊天背景
 
-### 语音识别
-- `POST /api/friend/message/asr/`
-- `POST /api/user/settings/ai/test_asr/`
+#### 面向模型的角色控制
 
-### 语音播报
-- `POST /api/friend/message/tts/`
-- `POST /api/create/character/voice/preview/`
+- `custom_prompt`
+- `reply_style`
+- `reply_length`
+- `initiative_level`
+- `memory_mode`
+- `persona_boundary`
+- 工具边界预留字段
 
-### AI 设置
-- `GET/POST /api/user/settings/ai/`
-- `POST /api/user/settings/ai/test/`
+### 8.3 为什么 `custom_prompt` 必须存在
 
-### 音色管理
-- `GET /api/create/character/voice/list/`
-- `POST /api/create/character/voice/save/`
-- `POST /api/create/character/voice/<voice_id>/remove/`
+`profile` 更适合写角色对外信息。  
+但真正让角色稳定的内容通常是：
 
-## 10. 当前边界与限制
+- 必须遵守
+- 禁止行为
+- 关系边界
+- 说话方式
 
-1. 聊天模型
-- 只支持兼容 OpenAI Chat Completions 的聊天接口
+这些应该进入模型控制层，而不是混在展示简介里。
 
-2. ASR
-- 当前只支持阿里云百炼兼容接口
+### 8.4 当前最佳实践
 
-3. TTS
-- 当前只接阿里云 CosyVoice
-- 角色音色依赖 `Voice.model_name + Voice.voice_code`
+创作者写角色时应当：
 
-4. 自定义音色
-- 当前支持“填写已有 `voice_id`”
-- 还没有在项目内完成“上传音频直接创建复刻音色”的完整闭环
+- 用 `profile` 写“这个角色是谁”
+- 用 `custom_prompt` 写“这个角色必须怎么说、不能怎么说”
+- 用结构化 AI 配置调风格、长度、主动性和边界
 
-5. 前端语音
-- 仍然受浏览器权限、HTTPS、安全上下文、系统麦克风路由影响
+### 8.5 当前实现逻辑
 
-## 11. 最值得继续扩展的方向
+Persona Layer 当前是“角色编辑 -> 结构化字段 -> prompt 编译”的链路。
 
-1. 在项目内直接接入“声音复刻创建音色”
-2. 把音色管理单独做成管理页
-3. 增加更多 AI 行为配置：
-- 回复风格
-- 记忆策略
-- 安全策略
-- 多 system prompt 模板
-4. 进一步拆分前端语音模块，降低主包体积
+#### 角色编辑阶段
+
+创作者当前主要编辑这些内容：
+
+- `name`
+- `profile`
+- `custom_prompt`
+- `reply_style`
+- `reply_length`
+- `initiative_level`
+- `memory_mode`
+- `persona_boundary`
+- `voice`
+
+也就是说，角色不再只是“一个头像 + 一段简介”，而是已经变成一套带 AI 行为控制的配置对象。
+
+#### 表单阶段的职责划分
+
+当前表单设计上已经把角色配置分成几类：
+
+- 对外展示的人设信息
+- 只给 AI 看的自定义 Prompt
+- 结构化 AI 行为配置
+- 语音配置与试听
+
+这一步的意义是：让创作者明确知道哪些内容是给用户看，哪些内容是给模型吃。
+
+#### Prompt 编译阶段
+
+保存角色后，聊天链路不会直接把所有字段平铺丢给模型，而是重新编译：
+
+- `profile` 进入 `persona`
+- `custom_prompt` 进入 `character_prompt`
+- 结构化 AI 配置进入 `creator_ai`
+- 音色信息进入 `voice`
+
+这样做比直接把整张表单拼成一段长文本更稳，也更适合后续继续优化。
+
+---
+
+## 9. 评估与回归
+
+如果没有评估，AI 工程很容易退化成“感觉更好了”。
+
+### 9.1 当前评估方向
+
+当前 repo 内已经有轻量评估案例，重点覆盖：
+
+- 角色一致性
+- 语音一致性
+- 称呼偏好命中
+- 兴趣与边界记忆命中
+- fallback 暴露正确性
+
+### 9.2 评估方式
+
+当前评估不追求自动打分，而是先做：
+
+- 固定测试样例
+- 明确检查项
+- 可人工审阅的清单输出
+
+这对于当前阶段更实际。
+
+### 9.3 为什么先做轻量评估
+
+因为当前更需要的是：
+
+- 回归稳定
+- 问题复现
+- 对比不同优化前后的差异
+
+不是一套过度复杂的 AI Benchmark 平台。
+
+### 9.4 当前实现逻辑
+
+当前评估闭环刻意保持很轻：
+
+#### 评估案例定义
+
+先把核心能力写成固定案例：
+
+- 角色一致性
+- 语音一致性
+- 偏好记忆命中
+- fallback 暴露
+
+每个案例包含：
+
+- case id
+- 用户输入
+- 需要人工检查的点
+
+#### 评估输出方式
+
+当前不会自动跑模型并自动打分。  
+而是先用脚本输出一份人工检查清单，确保每次改动后至少有稳定的回归基线。
+
+#### 为什么先人工评估
+
+因为当前阶段主要问题不是“没有自动分数”，而是“没有稳定的回归样例”。  
+先把评估样例固定下来，后续再考虑更自动化的评分更合理。
+
+---
+
+## 10. 当前最值得投入的方向
+
+### P0
+
+- 角色一致性
+- 记忆刷新稳态
+- runtime / fallback 透明性
+- 诊断标签清晰
+
+### P1
+
+- 创作者 Prompt 工程化
+- 偏好提取质量
+- 关系记忆质量
+- Studio 试聊诊断能力
+
+### P2
+
+- 评估集扩充
+- prompt 版本化
+- provider 兼容性隔离
+
+### 当前不建议作为主线投入
+
+- 通用 RAG
+- 通用 Agent
+- 多渠道接入
+- 自动化工作流
+- 真实工具执行
+
+---
+
+## 11. 一句话结论
+
+AIFriends 当前 AI 工程最正确的方向不是“变得更大”，而是：
+
+把 **角色一致性、轻量记忆、语音一致性、运行时透明性、创作者可控性** 做成一个稳定、可诊断、可持续优化的系统。

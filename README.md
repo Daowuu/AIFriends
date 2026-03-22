@@ -8,7 +8,7 @@ AIFriends is a character-driven AI chat project focused on:
 - long-term relationship memory
 - voice-aligned interaction
 
-It is built for creator-controlled character chat, not general-purpose agents or large-scale RAG.
+It is built for creator-controlled character chat.
 
 ## Features
 

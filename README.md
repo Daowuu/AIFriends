@@ -140,14 +140,6 @@ The sample button is useful as a starting point because it fills all three confi
 
 ![Studio](docs/assets/readme/studio.png)
 
-## After Pulling New Code
-
-If you sync the project on another machine or pull a newer version, run this once before starting:
-
-```bash
-python3 backend/manage.py migrate
-```
-
 ## Docs
 
 Start here if you want implementation details:

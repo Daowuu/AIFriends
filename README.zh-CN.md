@@ -140,14 +140,6 @@ cd frontend && npm run build-only
 
 ![Studio](docs/assets/readme/studio.png)
 
-## 拉取新代码后
-
-如果你在另一台机器同步代码，或者更新到了新版本，启动前先执行一次：
-
-```bash
-python3 backend/manage.py migrate
-```
-
 ## 文档导航
 
 如果要看实现细节，建议按这个顺序阅读：

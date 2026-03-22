@@ -39,7 +39,7 @@ npm install
 cd ..
 ```
 
-### 2. Configure the backend env
+### 2. Configure the runtime file
 
 Edit:
 
@@ -70,7 +70,7 @@ DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 
 After updating `backend/.env`, restart Django.
 
-### 3. Run the project
+### 3. Migrate and run
 
 Terminal 1:
 
@@ -111,9 +111,42 @@ cd frontend && npm run build-only
 
 1. Create or edit a character in `/studio`
 2. Configure `custom_prompt`, memory mode, and voice
-3. Adjust chat / ASR / TTS runtime in the same Studio
-4. Trial chat and voice preview
-5. Enter `/chat/:characterId` for the formal conversation
+3. Drag the character tabs in Studio if you want to reorder the list
+4. Check the role overview and memory state
+5. Adjust chat / ASR / TTS runtime in the same Studio
+6. Trial chat and voice preview
+7. Enter `/chat/:characterId` for the formal conversation
+
+## Using the Sample Role
+
+If you just want to try the full workflow quickly:
+
+1. Open `/studio`
+2. Go to `角色配置`
+3. Click `填入爱莉希雅示例`
+4. Review the generated profile, prompt, AI behavior, voice draft, avatar, and background image
+5. Save the character
+6. Continue with `角色概览`, `试聊诊断`, or open `/chat/:characterId`
+
+The sample button is useful as a starting point because it fills all three configuration steps at once instead of only creating an empty draft.
+
+## Screenshots
+
+### Chat
+
+![Chat](docs/assets/readme/chat.png)
+
+### Studio
+
+![Studio](docs/assets/readme/studio.png)
+
+## After Pulling New Code
+
+If you sync the project on another machine or pull a newer version, run this once before starting:
+
+```bash
+python3 backend/manage.py migrate
+```
 
 ## Docs
 

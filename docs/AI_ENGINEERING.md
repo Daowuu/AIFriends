@@ -106,7 +106,7 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - 是否注入会话记忆
 - 语音播报使用哪种音色
 
-### 3.2 Friend（当前作为会话存储）
+### 3.2 会话存储（模型名仍为 `Friend`）
 
 数据库里这个模型名仍然叫 `Friend`，但在当前产品语义里它承担的是 **角色会话**。
 
@@ -125,7 +125,6 @@ AIFriends 现在是一个单实例角色 AI 项目。
 
 - 一个角色对应一个本地持久会话
 - 消息历史和长期记忆都挂在这里
-- Studio 最近实验摘要也从这里读取
 
 ### 3.3 Message
 
@@ -144,9 +143,9 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - 最近对话注入 prompt
 - 记忆刷新 transcript 构造
 
-### 3.4 Runtime Env（Studio 与 `backend/.env` 同步）
+### 3.4 运行时配置（Studio 与 `backend/.env` 同步）
 
-当前项目的 chat / ASR runtime 不再走用户级数据库配置，而是统一收敛到 `backend/.env`。
+当前项目的 chat / ASR / TTS runtime 不再走数据库配置，而是统一收敛到 `backend/.env`。
 
 Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端运行时解析也直接从这份文件读取。
 
@@ -335,19 +334,14 @@ TTS 当前依赖 DashScope 语音链路：
 - `fallback_used`
 - `error_tag`
 
-### 7.2 最近实验摘要
+### 7.2 调试快照
 
 每个会话还会保存：
 
 - `last_debug_snapshot`
 - `last_debug_at`
 
-Studio 会读取最近一条可用会话快照，展示：
-
-- 本轮用了哪些 prompt layers
-- 是否注入摘要 / 关系 / 偏好记忆
-- 本轮是否 fallback
-- 最近一次记忆刷新原因
+这些字段当前主要作为后端诊断快照保留，供调试和后续分析使用，不再直接作为 Studio 页面的一块独立摘要展示。
 
 ---
 
@@ -403,9 +397,10 @@ Studio 是工程态工作台，负责：
 
 - 配置角色
 - 配置 runtime
+- 调整角色顺序
 - 试听
 - 试聊
-- 看调试摘要
+- 看角色概览和记忆状态
 - 清空长期记忆
 
 ### 9.2 聊天页

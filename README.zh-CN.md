@@ -39,7 +39,7 @@ npm install
 cd ..
 ```
 
-### 2. 配置后端 env
+### 2. 配置运行时文件
 
 编辑：
 
@@ -70,7 +70,7 @@ DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 
 修改完 `backend/.env` 后，重启 Django。
 
-### 3. 运行项目
+### 3. 迁移并运行项目
 
 终端 1：
 
@@ -111,9 +111,42 @@ cd frontend && npm run build-only
 
 1. 在 `/studio` 创建或编辑角色
 2. 配置 `custom_prompt`、记忆模式和音色
-3. 在同一处调整 chat / ASR / TTS 运行时
-4. 先试聊、试听
-5. 再进入 `/chat/:characterId` 做正式对话
+3. 如果需要，可以在 Studio 顶部拖动角色切换条来调整顺序
+4. 在 `角色概览` 中检查角色资产、记忆状态和当前运行时摘要
+5. 在同一处调整 chat / ASR / TTS 运行时
+6. 先试聊、试听
+7. 再进入 `/chat/:characterId` 做正式对话
+
+## 如何使用示例角色
+
+如果你想快速体验完整工作流，最简单的方式是：
+
+1. 打开 `/studio`
+2. 进入 `角色配置`
+3. 点击 `填入爱莉希雅示例`
+4. 检查自动填入的角色介绍、Prompt、AI 参数、音色草稿、头像和背景图
+5. 保存角色
+6. 再去 `角色概览`、`试聊诊断` 或 `/chat/:characterId`
+
+这个按钮的作用不是只填名字，而是一次性补齐三步配置，适合拿来快速启动一个可用角色。
+
+## 项目截图
+
+### 聊天页
+
+![聊天页](docs/assets/readme/chat.png)
+
+### Studio
+
+![Studio](docs/assets/readme/studio.png)
+
+## 拉取新代码后
+
+如果你在另一台机器同步代码，或者更新到了新版本，启动前先执行一次：
+
+```bash
+python3 backend/manage.py migrate
+```
 
 ## 文档导航
 

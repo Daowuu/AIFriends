@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AIFriends is a character-driven AI chat project focused on:
+AIFriends is a character-driven AI chat project centered on three capabilities:
 
 - role consistency
 - long-term relationship memory
@@ -10,15 +10,15 @@ AIFriends is a character-driven AI chat project focused on:
 
 It is built for creator-controlled character chat.
 
-## Features
+## What You Can Do
 
-- AI Studio for character creation, prompt tuning, voice setup, trial chat, and diagnostics
-- Formal chat page with text input, voice input, and voice playback
-- Structured prompt layers
-- Lightweight long-term memory per user and per character
-- Runtime diagnostics for chat / ASR / TTS
+- Create and tune characters in `AI Studio`
+- Configure public persona, `custom_prompt`, dialogue style, memory mode, and voice
+- Run trial chat and voice preview before entering the formal chat page
+- Use text chat, voice input, and voice playback with one shared character logic
+- Inspect runtime diagnostics for chat / ASR / TTS
 
-## Routes
+## Main Routes
 
 - `/` public feed
 - `/chat/:characterId` formal chat
@@ -31,19 +31,22 @@ It is built for creator-controlled character chat.
 
 ## Quick Start
 
-### Backend
-
-Recommended Python: `3.12+`
+### 1. Clone
 
 ```bash
 git clone https://github.com/Daowuu/AIFriends.git
 cd AIFriends
+```
 
+### 2. Start the backend
+
+Recommended Python: `3.12+`
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv openai
-
 cp backend/.env.example backend/.env
 python3 backend/manage.py migrate
 python3 backend/manage.py runserver
@@ -53,7 +56,7 @@ Backend default:
 
 - `http://127.0.0.1:8000`
 
-### Frontend
+### 3. Start the frontend
 
 Recommended Node: `20+`
 
@@ -67,7 +70,7 @@ Frontend default:
 
 - `http://127.0.0.1:5173`
 
-### One-command dev
+### 4. Start both together
 
 From repo root:
 
@@ -100,6 +103,13 @@ DJANGO_ALLOWED_HOSTS="127.0.0.1,localhost,testserver"
 DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
 
+Runtime resolution:
+
+- valid user config: use user config
+- broken user config: return `invalid`
+- no user config: use server-side defaults when available
+- no valid runtime anywhere: return `missing`
+
 ## Common Commands
 
 ```bash
@@ -108,12 +118,18 @@ python3 scripts/run_ai_eval.py
 npm run build
 ```
 
-## Docs
+## Reading Order
 
-- [AI Overview](docs/AI_OVERVIEW.md)
-- [AI Engineering](docs/AI_ENGINEERING.md)
-- [Platform Functions](docs/PLATFORM_FUNCTIONS.md)
-- [Iteration Log](docs/ITERATION_LOG.md)
+If you only need to run the project, this README is enough.  
+If you need to understand or extend the AI logic, read in this order:
+
+1. [AI Overview](docs/AI_OVERVIEW.md)
+2. [AI Engineering](docs/AI_ENGINEERING.md)
+3. [Platform Functions](docs/PLATFORM_FUNCTIONS.md)
+4. [Iteration Log](docs/ITERATION_LOG.md)
+
+Supporting files:
+
 - [AI Evaluation Cases](docs/ai_eval_cases.json)
 
 ## Project Structure

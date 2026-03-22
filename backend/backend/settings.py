@@ -16,13 +16,15 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Prefer the documented backend/.env file, and allow a repo-root .env as fallback.
+load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR.parent / '.env')
+
 mimetypes.add_type('application/javascript', '.mjs', True)
 mimetypes.add_type('application/wasm', '.wasm', True)
 mimetypes.add_type('model/onnx', '.onnx', True)
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def get_env_bool(name: str, default: bool = False) -> bool:
@@ -36,7 +38,7 @@ def get_env_bool(name: str, default: bool = False) -> bool:
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-s9sj4)3x#625b!!&%ox6f1%5t4m)h#7=va_m%dv68kms)=h+7f')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '').strip() or 'django-insecure-s9sj4)3x#625b!!&%ox6f1%5t4m)h#7=va_m%dv68kms)=h+7f'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
@@ -167,6 +169,10 @@ AI_RUNTIME = {
     },
     'tts': {
         'model_name': os.getenv('TTS_MODEL', 'cosyvoice-v3.5-plus').strip() or 'cosyvoice-v3.5-plus',
+    },
+    'demo_quota': {
+        'text_chat_limit': max(int(os.getenv('DEMO_TEXT_CHAT_LIMIT', '20') or 20), 0),
+        'voice_chat_limit': max(int(os.getenv('DEMO_VOICE_CHAT_LIMIT', '5') or 5), 0),
     },
 }
 

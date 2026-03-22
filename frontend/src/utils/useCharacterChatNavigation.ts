@@ -13,8 +13,9 @@ export const useCharacterChatNavigation = () => {
   const ensureChatCharacter = async (character: Character) => {
     if (!user.isAuthenticated) {
       await router.push({
-        name: 'login',
-        query: { redirect: `/chat/${character.id}` },
+        name: 'chat',
+        params: { characterId: character.id },
+        state: { character: JSON.parse(JSON.stringify(character)) as Character, from: route.fullPath },
       })
       return null
     }

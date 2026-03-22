@@ -19,16 +19,16 @@ from web.ai_settings_views import (
     test_user_asr_settings_view,
     user_ai_settings_view,
 )
-from web.asr_views import speech_to_text_view
+from web.asr_views import demo_speech_to_text_view, speech_to_text_view
 from web.feed_views import homepage_index_view, public_character_detail_view, user_space_view
 from web.friend_views import (
     get_friend_list_view,
     get_or_create_friend_view,
     remove_friend_view,
 )
-from web.message_views import get_history_view, message_chat_view, reset_conversation_view
+from web.message_views import demo_chat_view, get_history_view, message_chat_view, reset_conversation_view
 from web.studio_views import studio_overview_view
-from web.tts_views import message_tts_view, preview_tts_view
+from web.tts_views import demo_message_tts_view, message_tts_view, preview_tts_view
 from web.auth_views import (
     get_user_info_view,
     login_view,
@@ -67,8 +67,11 @@ urlpatterns = [
     path('friend/list/', get_friend_list_view, name='friend_list'),
     path('friend/message/history/', get_history_view, name='friend_message_history'),
     path('friend/message/chat/', message_chat_view, name='friend_message_chat'),
+    path('demo/chat/', demo_chat_view, name='demo_chat'),
     path('friend/message/reset/', reset_conversation_view, name='friend_message_reset'),
     path('friend/message/asr/', speech_to_text_view, name='friend_message_asr'),
     path('friend/message/tts/', message_tts_view, name='friend_message_tts'),
+    path('demo/asr/', demo_speech_to_text_view, name='demo_asr'),
+    path('demo/tts/', demo_message_tts_view, name='demo_tts'),
     path('create/character/voice/preview/', preview_tts_view, name='character_voice_preview'),
 ]

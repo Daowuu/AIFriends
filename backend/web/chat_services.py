@@ -2,11 +2,12 @@ import json
 import re
 from datetime import timedelta
 from time import sleep
+from types import SimpleNamespace
 
 from django.utils import timezone
 from openai import OpenAI
 
-from web.ai_settings_service import get_runtime_ai_resolution
+from web.ai_settings_service import get_public_runtime_ai_resolution, get_runtime_ai_resolution
 from web.api_helpers import get_user_profile
 from web.models import Message, SystemPrompt
 
@@ -242,6 +243,45 @@ def build_chat_messages(friend, user_message):
 
     payload.append({'role': 'user', 'content': user_message})
     debug['recent_message_count'] = len(history)
+    return payload, debug
+
+
+def normalize_demo_history(history):
+    normalized = []
+    for item in history or []:
+        role = 'assistant' if str(item.get('role', '')).strip() == 'assistant' else 'user'
+        raw_content = str(item.get('content', '') or '').strip()
+        if not raw_content:
+            continue
+
+        content = strip_reasoning_content(raw_content) if role == 'assistant' else raw_content
+        content = truncate_text(
+            content,
+            MAX_ASSISTANT_MESSAGE_LENGTH if role == 'assistant' else MAX_USER_MESSAGE_LENGTH,
+        )
+        if not content:
+            continue
+
+        normalized.append({
+            'role': role,
+            'content': content,
+        })
+
+    return normalized[-MAX_HISTORY_MESSAGES:]
+
+
+def build_demo_chat_messages(character, history, user_message):
+    pseudo_friend = SimpleNamespace(
+        character=character,
+        conversation_summary='',
+        relationship_memory='',
+        user_preference_memory='',
+    )
+    normalized_history = normalize_demo_history(history)
+    system_prompt, debug = build_system_prompt(pseudo_friend)
+    payload = [{'role': 'system', 'content': system_prompt}, *normalized_history]
+    payload.append({'role': 'user', 'content': user_message})
+    debug['recent_message_count'] = len(normalized_history)
     return payload, debug
 
 
@@ -546,10 +586,25 @@ def update_friend_memory(friend, user_message, runtime_config):
 
 
 def persist_friend_debug_snapshot(friend, *, prompt_debug, memory_debug=None, runtime_source='fallback', fallback_used=False, error_tag=''):
+    snapshot = build_debug_snapshot(
+        memory_mode=friend.character.memory_mode,
+        prompt_debug=prompt_debug,
+        memory_debug=memory_debug,
+        runtime_source=runtime_source,
+        fallback_used=fallback_used,
+        error_tag=error_tag,
+    )
+    friend.last_debug_snapshot = snapshot
+    friend.last_debug_at = timezone.now()
+    friend.save(update_fields=['last_debug_snapshot', 'last_debug_at'])
+    return snapshot
+
+
+def build_debug_snapshot(*, memory_mode, prompt_debug, memory_debug=None, runtime_source='fallback', fallback_used=False, error_tag=''):
     snapshot = {
         'prompt_layers': prompt_debug.get('prompt_layers', []),
         'memory_injection': prompt_debug.get('memory', {
-            'mode': friend.character.memory_mode,
+            'mode': memory_mode,
             'used_summary': False,
             'used_relationship_memory': False,
             'used_user_preference_memory': False,
@@ -565,10 +620,6 @@ def persist_friend_debug_snapshot(friend, *, prompt_debug, memory_debug=None, ru
     }
     if error_tag:
         snapshot['error_tag'] = error_tag
-
-    friend.last_debug_snapshot = snapshot
-    friend.last_debug_at = timezone.now()
-    friend.save(update_fields=['last_debug_snapshot', 'last_debug_at'])
     return snapshot
 
 
@@ -652,4 +703,66 @@ def sse_event_stream(friend, user_message):
         }, ensure_ascii=False)
         yield f'data: {meta_payload}\n\n'
 
+    yield 'data: [DONE]\n\n'
+
+
+def sse_demo_event_stream(character, user_message, history=None):
+    raw_chunks = []
+    streamed_visible_text = ''
+    runtime_resolution = get_public_runtime_ai_resolution()
+    runtime_config = runtime_resolution['config']
+    chat_messages, prompt_debug = build_demo_chat_messages(character, history or [], user_message)
+
+    try:
+        stream = model_stream_reply(None, chat_messages, runtime_config) if runtime_config else fallback_stream_reply(
+            SimpleNamespace(character=character),
+            user_message,
+        )
+        for piece in stream:
+            raw_chunks.append(piece)
+            visible_text = strip_reasoning_content(''.join(raw_chunks))
+            delta = visible_text[len(streamed_visible_text):]
+            streamed_visible_text = visible_text
+
+            if delta:
+                yield f"data: {json.dumps({'content': delta}, ensure_ascii=False)}\n\n"
+    except Exception as error:
+        debug_snapshot = build_debug_snapshot(
+            memory_mode='off',
+            prompt_debug=prompt_debug,
+            memory_debug={
+                'triggered': False,
+                'updated': False,
+                'reason': 'provider_error',
+                'cooldown_active': False,
+            },
+            runtime_source=runtime_config['source'] if runtime_config else 'fallback',
+            fallback_used=runtime_config is None,
+            error_tag='model_stream_error',
+        )
+        yield f"data: {json.dumps({'error': str(error), 'error_tag': 'model_stream_error', 'meta': {'debug': debug_snapshot, 'demo': True}}, ensure_ascii=False)}\n\n"
+        yield 'data: [DONE]\n\n'
+        return
+
+    debug_snapshot = build_debug_snapshot(
+        memory_mode='off',
+        prompt_debug=prompt_debug,
+        memory_debug={
+            'triggered': False,
+            'updated': False,
+            'reason': 'demo_session',
+            'cooldown_active': False,
+        },
+        runtime_source=runtime_config['source'] if runtime_config else 'fallback',
+        fallback_used=runtime_config is None,
+    )
+    meta_payload = json.dumps({
+        'meta': {
+            'saved': False,
+            'history_increment': 0,
+            'debug': debug_snapshot,
+            'demo': True,
+        },
+    }, ensure_ascii=False)
+    yield f'data: {meta_payload}\n\n'
     yield 'data: [DONE]\n\n'

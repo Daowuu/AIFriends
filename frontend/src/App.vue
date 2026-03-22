@@ -10,11 +10,19 @@ const router = useRouter()
 const user = useUserStore()
 const searchQuery = ref('')
 
-const primaryNavItems = [
-  { to: '/', label: '首页', icon: 'home' },
-  { to: '/friends', label: '好友', icon: 'friend' },
-  { to: '/studio', label: 'AI Studio', icon: 'create' },
-] as const
+const primaryNavItems = computed(() => {
+  if (!user.isAuthenticated) {
+    return [
+      { to: '/', label: '首页', icon: 'home' },
+    ] as const
+  }
+
+  return [
+    { to: '/', label: '首页', icon: 'home' },
+    { to: '/friends', label: '好友', icon: 'friend' },
+    { to: '/studio', label: 'AI Studio', icon: 'create' },
+  ] as const
+})
 
 const isChatRoute = computed(() => route.name === 'chat')
 const showSearchAction = computed(() => route.name !== 'login' && route.name !== 'register')

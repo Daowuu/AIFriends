@@ -16,17 +16,25 @@ export default async function streamApi(payload: StreamPayload) {
 
   while (true) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      if (user.accessToken) {
+        headers.Authorization = `Bearer ${user.accessToken}`
+      }
+
       await fetchEventSource(`/api${payload.url}`, {
         method: 'POST',
         signal: payload.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.accessToken}`,
-        },
+        headers,
         body: JSON.stringify(payload.body),
         openWhenHidden: true,
         async onopen(response) {
           if (response.status === 401) {
+            if (!user.accessToken) {
+              throw new Error('当前会话未登录，请先登录后再继续。')
+            }
             await user.refreshToken()
             throw new Error('TOKEN_REFRESHED')
           }

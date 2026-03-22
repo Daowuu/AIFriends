@@ -16,6 +16,7 @@ AIFriends 是一个以角色为核心的 AI 聊天项目，当前围绕三项能
 - 配置公开人设、`custom_prompt`、对话风格、记忆模式和音色
 - 在进入正式聊天页前先试聊、试听
 - 用同一套角色逻辑承接文字聊天、语音输入和语音播报
+- 未登录时可以直接进行简单试玩
 - 查看 chat / ASR / TTS 的运行时诊断
 
 ## 主要路由
@@ -85,6 +86,16 @@ npm run dev
 
 - [backend/.env.example](backend/.env.example)
 
+先复制一份本地配置文件：
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+然后编辑：
+
+- [backend/.env](backend/.env)
+
 最重要的变量：
 
 ```env
@@ -97,11 +108,15 @@ ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"
 TTS_MODEL="cosyvoice-v3.5-plus"
+DEMO_TEXT_CHAT_LIMIT="20"
+DEMO_VOICE_CHAT_LIMIT="5"
 DJANGO_SECRET_KEY=""
 DJANGO_DEBUG="true"
 DJANGO_ALLOWED_HOSTS="127.0.0.1,localhost,testserver"
 DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
+
+修改完 `backend/.env` 后，重启 Django 服务。
 
 runtime 解析顺序：
 

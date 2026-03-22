@@ -16,6 +16,7 @@ It is built for creator-controlled character chat.
 - Configure public persona, `custom_prompt`, dialogue style, memory mode, and voice
 - Run trial chat and voice preview before entering the formal chat page
 - Use text chat, voice input, and voice playback with one shared character logic
+- Try the chat experience before logging in
 - Inspect runtime diagnostics for chat / ASR / TTS
 
 ## Main Routes
@@ -85,6 +86,16 @@ Server-side defaults are centralized in:
 
 - [backend/.env.example](backend/.env.example)
 
+First copy the local config file:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Then edit:
+
+- [backend/.env](backend/.env)
+
 Most important variables:
 
 ```env
@@ -97,11 +108,15 @@ ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"
 TTS_MODEL="cosyvoice-v3.5-plus"
+DEMO_TEXT_CHAT_LIMIT="20"
+DEMO_VOICE_CHAT_LIMIT="5"
 DJANGO_SECRET_KEY=""
 DJANGO_DEBUG="true"
 DJANGO_ALLOWED_HOSTS="127.0.0.1,localhost,testserver"
 DJANGO_CORS_ALLOWED_ORIGINS="http://127.0.0.1:5173,http://localhost:5173"
 ```
+
+After updating `backend/.env`, restart the Django server.
 
 Runtime resolution:
 

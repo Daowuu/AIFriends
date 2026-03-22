@@ -2,12 +2,14 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, renderer_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 
-from web.chat_services import sse_event_stream, strip_reasoning_content
-from web.models import Friend, Message
+from web.chat_services import sse_demo_event_stream, sse_event_stream, strip_reasoning_content
+from web.ai_settings_service import get_public_runtime_ai_resolution, get_runtime_ai_resolution
+from web.models import Character, Friend, Message
+from web.system_api_quota_service import build_quota_exceeded_response, consume_system_api_quota
 
 
 class SSERenderer(BaseRenderer):
@@ -87,8 +89,60 @@ def message_chat_view(request):
         user=request.user,
     )
 
+    runtime_resolution = get_runtime_ai_resolution(request.user)
+    runtime_config = runtime_resolution.get('config') or {}
+    if runtime_config.get('source') == 'env':
+        if not consume_system_api_quota(request, quota_type='text'):
+            return build_quota_exceeded_response(quota_type='text', authenticated=True)
+
     response = StreamingHttpResponse(
         sse_event_stream(friend, user_message[:4000]),
+        content_type='text/event-stream',
+    )
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@renderer_classes([SSERenderer])
+def demo_chat_view(request):
+    try:
+        character_id = int(request.data.get('character_id', 0) or 0)
+    except (TypeError, ValueError):
+        return Response({'detail': 'character_id 格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_message = str(request.data.get('message', '')).strip()
+    raw_history = request.data.get('history', [])
+
+    if character_id <= 0:
+        return Response({'detail': '缺少有效的 character_id。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not user_message:
+        return Response({'detail': '消息内容不能为空。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if raw_history is None:
+        raw_history = []
+    if not isinstance(raw_history, list):
+        return Response({'detail': 'history 格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    character = get_object_or_404(
+        Character.objects.select_related(
+            'user',
+            'user__profile',
+            'voice',
+        ),
+        pk=character_id,
+    )
+
+    runtime_resolution = get_public_runtime_ai_resolution()
+    runtime_config = runtime_resolution.get('config') or {}
+    if runtime_config.get('source') == 'env':
+        if not consume_system_api_quota(request, quota_type='text'):
+            return build_quota_exceeded_response(quota_type='text', authenticated=False)
+
+    response = StreamingHttpResponse(
+        sse_demo_event_stream(character, user_message[:4000], history=raw_history[:24]),
         content_type='text/event-stream',
     )
     response['Cache-Control'] = 'no-cache'

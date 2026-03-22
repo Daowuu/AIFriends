@@ -152,7 +152,7 @@ onBeforeUnmount(() => {
         <ul class="mt-5 space-y-3 text-sm leading-7 text-base-content/65">
           <li class="rounded-2xl border border-base-200 px-4 py-3">点击角色卡片会直接进入新的聊天页。</li>
           <li class="rounded-2xl border border-base-200 px-4 py-3">点击作者名可以进入 TA 的个人主页继续浏览更多角色。</li>
-          <li class="rounded-2xl border border-base-200 px-4 py-3">登录后会自动建立聊天会话，不需要再弹层里二次确认。</li>
+          <li class="rounded-2xl border border-base-200 px-4 py-3">未登录也可以直接试玩聊天。</li>
         </ul>
       </aside>
     </div>

@@ -23,6 +23,7 @@ const conversationActionPending = ref(false)
 const chatFieldKey = ref(0)
 
 const characterId = computed(() => Number(route.params.characterId))
+const isDemoMode = computed(() => !user.isAuthenticated)
 
 const seedCharacterFromHistory = () => {
   const stateCharacter = window.history.state?.character as Character | undefined
@@ -90,7 +91,21 @@ const refreshChatField = () => {
 }
 
 const handleConversationReset = async () => {
-  if (!character.value?.friend_id || conversationActionPending.value) return
+  if (conversationActionPending.value) return
+
+  if (isDemoMode.value) {
+    const confirmMessage = '重置聊天窗口会清空当前演示对话。是否继续？'
+    if (typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
+      return
+    }
+
+    errorMessage.value = ''
+    actionMessage.value = '已清空当前演示对话。'
+    refreshChatField()
+    return
+  }
+
+  if (!character.value?.friend_id) return
 
   const confirmMessage = '重置聊天窗口会清空当前消息记录，但会保留这段关系记忆。是否继续？'
 
@@ -250,14 +265,15 @@ const backgroundFigureStyle = computed(() => {
             </div>
 
             <div class="flex items-center gap-2">
-              <button
-                v-if="!user.isAuthenticated"
-                type="button"
-                class="btn btn-sm rounded-full"
-                @click="loginToChat"
-              >
-                登录
-              </button>
+              <template v-if="!user.isAuthenticated">
+                <button
+                  type="button"
+                  class="btn btn-sm rounded-full"
+                  @click="loginToChat"
+                >
+                  登录
+                </button>
+              </template>
               <button
                 v-else-if="!character?.friend_id"
                 type="button"
@@ -308,6 +324,7 @@ const backgroundFigureStyle = computed(() => {
               :character="character"
               :pending="friendActionPending"
               :can-manage-friend="user.isAuthenticated"
+              :demo-enabled="isDemoMode"
             />
           </div>
         </div>

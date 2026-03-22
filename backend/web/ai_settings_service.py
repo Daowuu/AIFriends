@@ -255,6 +255,70 @@ def get_runtime_ai_resolution(user):
     }
 
 
+def get_public_runtime_ai_resolution():
+    server_runtime = get_server_ai_runtime_defaults()
+    server_chat = server_runtime.get('chat', {})
+
+    api_key = str(server_chat.get('api_key', '')).strip()
+    api_base = str(server_chat.get('api_base', '')).strip()
+    model_name = str(server_chat.get('model_name', 'qwen-plus')).strip() or 'qwen-plus'
+
+    if not api_key or not api_base:
+        return {
+            'status': 'missing',
+            'reason': 'no_runtime_config',
+            'config': None,
+        }
+
+    dashscope_audio_reuse_source = ''
+    if bool(server_chat.get('supports_dashscope_audio', False)):
+        dashscope_audio_reuse_source = 'env_explicit_toggle'
+    elif is_dashscope_compatible_api_base(api_base):
+        dashscope_audio_reuse_source = 'env_domain_fallback'
+
+    return {
+        'status': 'ok',
+        'reason': '',
+        'config': {
+            'source': 'env',
+            'provider': str(server_chat.get('provider', '')).strip() or 'env',
+            'api_key': api_key,
+            'api_base': api_base,
+            'model_name': model_name,
+            'dashscope_audio_enabled': bool(dashscope_audio_reuse_source),
+            'dashscope_audio_reuse_source': dashscope_audio_reuse_source,
+            'label': '服务端默认聊天配置',
+        },
+    }
+
+
+def get_public_dashscope_runtime_config():
+    server_runtime = get_server_ai_runtime_defaults()
+    server_chat = server_runtime.get('chat', {})
+    server_asr = server_runtime.get('asr', {})
+
+    api_key = str(server_asr.get('api_key', '')).strip() or str(server_chat.get('api_key', '')).strip()
+    api_base = str(server_asr.get('api_base', '')).strip() or str(server_chat.get('api_base', '')).strip()
+    model_name = str(server_asr.get('model_name', '')).strip() or ASR_DEFAULT_MODEL_NAME
+    explicit_asr_base = bool(str(server_asr.get('api_base', '')).strip())
+
+    if not api_key or not api_base:
+        return None
+
+    if not explicit_asr_base and not bool(server_chat.get('supports_dashscope_audio', False)) and not is_dashscope_compatible_api_base(api_base):
+        return None
+
+    return {
+        'source': 'env',
+        'provider': 'aliyun',
+        'api_key': api_key,
+        'api_base': api_base,
+        'model_name': model_name,
+        'label': '服务端语音配置',
+        'dashscope_audio_reuse_source': 'env_explicit_asr_base' if explicit_asr_base else 'env_domain_fallback',
+    }
+
+
 def get_runtime_ai_config(user):
     return get_runtime_ai_resolution(user)['config']
 

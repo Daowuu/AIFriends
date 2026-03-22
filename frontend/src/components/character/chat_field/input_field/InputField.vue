@@ -10,6 +10,8 @@ const props = withDefaults(defineProps<{
   autofocus?: boolean
   pending?: boolean
   disabled?: boolean
+  allowVoiceMode?: boolean
+  asrEndpoint?: string
   disabledReason?: string
   placeholder?: string
   resetToken?: number
@@ -17,6 +19,8 @@ const props = withDefaults(defineProps<{
   autofocus: false,
   pending: false,
   disabled: false,
+  allowVoiceMode: true,
+  asrEndpoint: '/friend/message/asr/',
   disabledReason: '',
   placeholder: '输入一句话，开始聊天。',
   resetToken: 0,
@@ -133,6 +137,12 @@ const focusTextarea = async () => {
 }
 
 const normalizeVoiceError = (error: unknown) => {
+  if (typeof error === 'object' && error && 'response' in error) {
+    const response = (error as { response?: { data?: { detail?: string } } }).response
+    const detail = response?.data?.detail?.trim()
+    if (detail) return detail
+  }
+
   if (error instanceof Error) {
     if (error.name === 'NotAllowedError') {
       return '麦克风权限被拒绝了，请在 Safari 设置里允许当前网站访问麦克风。'
@@ -384,7 +394,7 @@ const resetToTextMode = async () => {
 
 const sendVoiceToBackend = async (audio: Float32Array) => {
   voiceInfo.value = '语音片段已捕获，正在提交识别...'
-  const response = await api.post<{ text: string }>('/friend/message/asr/', {
+  const response = await api.post<{ text: string }>(props.asrEndpoint, {
     audio_data: float32ToWavDataUrl(audio),
   })
 
@@ -405,7 +415,7 @@ const sendVoiceToBackend = async (audio: Float32Array) => {
 
 const sendVoiceDataUrlToBackend = async (audioDataUrl: string) => {
   voiceInfo.value = '录音已结束，正在提交识别...'
-  const response = await api.post<{ text: string }>('/friend/message/asr/', {
+  const response = await api.post<{ text: string }>(props.asrEndpoint, {
     audio_data: audioDataUrl,
   })
 
@@ -478,13 +488,7 @@ const startVad = async () => {
           await sendVoiceToBackend(audio)
         } catch (error: unknown) {
           voiceInfo.value = ''
-          voiceError.value = '语音识别失败，请检查麦克风权限或阿里云语音配置。'
-          if (typeof error === 'object' && error && 'response' in error) {
-            const response = (error as {
-              response?: { data?: { detail?: string } }
-            }).response
-            voiceError.value = response?.data?.detail || voiceError.value
-          }
+          voiceError.value = normalizeVoiceError(error)
         } finally {
           isTranscribing.value = false
         }
@@ -598,6 +602,8 @@ const setInputMode = async (mode: 'text' | 'voice') => {
     return
   }
 
+  if (!props.allowVoiceMode) return
+
   inputMode.value = 'voice'
   message.value = ''
   showVoiceSettings.value = false
@@ -606,7 +612,7 @@ const setInputMode = async (mode: 'text' | 'voice') => {
 }
 
 const handleSend = () => {
-  if (props.pending || props.disabled) return
+  if (props.disabled) return
   const value = message.value.trim()
   if (!value) return
   emit('send', value)
@@ -621,6 +627,12 @@ watch(() => props.autofocus, async (value) => {
 
 watch(() => props.resetToken, () => {
   void resetToTextMode()
+})
+
+watch(() => props.allowVoiceMode, (allowed) => {
+  if (!allowed && inputMode.value === 'voice') {
+    void resetToTextMode()
+  }
 })
 
 watch(selectedInputDeviceId, (current, previous) => {
@@ -672,7 +684,7 @@ defineExpose({
           type="button"
           class="btn btn-sm rounded-full"
           :class="inputMode === 'voice' ? 'btn-primary' : 'btn-ghost text-base-content/70'"
-          :disabled="disabled"
+          :disabled="disabled || !allowVoiceMode"
           @click="setInputMode('voice')"
         >
           语音
@@ -694,12 +706,12 @@ defineExpose({
         ref="textareaRef"
         v-model="message"
         class="textarea h-20 flex-1 resize-none border-0 bg-white/85 text-sm leading-7 text-base-content focus:outline-none"
-        :disabled="disabled || pending"
+        :disabled="disabled"
         :placeholder="placeholder"
         @keydown.enter.exact.prevent="handleSend"
       />
-      <button type="button" class="btn btn-primary self-end" :disabled="pending || disabled" @click="handleSend">
-        {{ pending ? '发送中...' : '发送' }}
+      <button type="button" class="btn btn-primary self-end" :disabled="disabled" @click="handleSend">
+        {{ pending ? '继续发送' : '发送' }}
       </button>
     </div>
 
@@ -718,7 +730,7 @@ defineExpose({
           <button
             type="button"
             class="btn btn-sm rounded-full border-base-200 bg-white text-base-content/80 hover:bg-base-200/70"
-            :disabled="disabled || isVoiceBusy || !isMicrophoneReady"
+            :disabled="disabled || pending || isVoiceBusy || !isMicrophoneReady"
             @click="toggleLiveListening"
           >
             {{ isListening ? '停止监听' : '启动监听' }}
@@ -726,7 +738,7 @@ defineExpose({
           <button
             type="button"
             class="btn btn-sm rounded-full border-base-200 bg-base-100 text-base-content/80 hover:bg-base-200/70"
-            :disabled="disabled || isVoiceBusy || !isMicrophoneReady"
+            :disabled="disabled || pending || isVoiceBusy || !isMicrophoneReady"
             @click="toggleManualRecording"
           >
             {{ isManualRecording ? '停止并发送' : '手动录音' }}

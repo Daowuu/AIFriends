@@ -13,9 +13,11 @@ const props = withDefaults(defineProps<{
   character: Character | null
   pending?: boolean
   canManageFriend?: boolean
+  demoEnabled?: boolean
 }>(), {
   pending: false,
   canManageFriend: false,
+  demoEnabled: false,
 })
 
 const messages = ref<ChatMessage[]>([])
@@ -26,6 +28,11 @@ const sendingMessage = ref(false)
 const isReplySpeaking = ref(false)
 const chatError = ref('')
 const inputResetToken = ref(0)
+const pendingUserQueue = ref<Array<{
+  id: string
+  content: string
+  created_at: string
+}>>([])
 const chatHistoryRef = ref<InstanceType<typeof ChatHistory> | null>(null)
 const inputRef = ref<InstanceType<typeof InputField> | null>(null)
 let activeStreamController: AbortController | null = null
@@ -108,16 +115,21 @@ const playBrowserSpeech = (speechText: string, playbackToken: number) => {
 }
 
 const playBackendSpeech = async (speechText: string, playbackToken: number) => {
-  if (!props.character?.friend_id) {
+  if (!props.character?.id) {
     throw new Error('当前聊天会话不存在。')
   }
 
   const response = await api.post(
-    '/friend/message/tts/',
-    {
-      friend_id: props.character.friend_id,
-      text: speechText,
-    },
+    props.demoEnabled ? '/demo/tts/' : '/friend/message/tts/',
+    props.demoEnabled
+      ? {
+        character_id: props.character.id,
+        text: speechText,
+      }
+      : {
+        friend_id: props.character.friend_id,
+        text: speechText,
+      },
     {
       responseType: 'blob',
       timeout: 20000,
@@ -181,7 +193,41 @@ const appendMessage = (message: ChatMessage) => {
   messages.value = [...messages.value, message]
 }
 
-const stopCurrentReply = ({ clearError = false } = {}) => {
+const createUserMessage = (content: string) => {
+  const userMessage = {
+    id: crypto.randomUUID(),
+    content,
+    created_at: new Date().toISOString(),
+  }
+  appendMessage({
+    id: userMessage.id,
+    role: 'user',
+    content: userMessage.content,
+    created_at: userMessage.created_at,
+  })
+  return userMessage
+}
+
+const buildDemoHistoryBefore = (userMessageId: string) => {
+  const history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  for (const item of messages.value) {
+    if (item.id === userMessageId) break
+    if (!item.content.trim()) continue
+    history.push({
+      role: item.role,
+      content: item.content,
+    })
+  }
+  return history
+}
+
+const queueUserMessage = (content: string) => {
+  const queuedMessage = createUserMessage(content)
+  pendingUserQueue.value = [...pendingUserQueue.value, queuedMessage]
+  return queuedMessage
+}
+
+const stopCurrentReply = ({ clearError = false, continueQueue = true } = {}) => {
   const interruptedSpeechPlayback = isReplySpeaking.value
   activeStreamController?.abort()
   activeStreamController = null
@@ -204,6 +250,10 @@ const stopCurrentReply = ({ clearError = false } = {}) => {
   if (interruptedSpeechPlayback) {
     void inputRef.value?.resumeLiveListening()
   }
+
+  if (continueQueue && pendingUserQueue.value.length && (props.character?.friend_id || props.demoEnabled)) {
+    void processNextQueuedMessage()
+  }
 }
 
 const loadHistory = async ({ reset = false } = {}) => {
@@ -212,10 +262,11 @@ const loadHistory = async ({ reset = false } = {}) => {
   if (reset) {
     messages.value = []
     historyOffset.value = 0
-    hasMoreHistory.value = true
+    hasMoreHistory.value = !props.demoEnabled
     chatError.value = ''
   }
 
+  if (props.demoEnabled) return
   if (!props.character?.friend_id) return
   if (!hasMoreHistory.value && !reset) return
 
@@ -259,61 +310,70 @@ const loadHistory = async ({ reset = false } = {}) => {
   }
 }
 
-watch(() => [props.character?.id, props.character?.friend_id] as const, async ([characterId, friendId]) => {
-  if (!characterId || !friendId) {
-    stopCurrentReply({ clearError: true })
-    if (!characterId || !friendId) {
+watch(() => [props.character?.id, props.character?.friend_id, props.demoEnabled] as const, async ([characterId, friendId, demoEnabled]) => {
+  if (!characterId || (!friendId && !demoEnabled)) {
+    stopCurrentReply({ clearError: true, continueQueue: false })
+    if (!characterId || (!friendId && !demoEnabled)) {
       messages.value = []
       historyOffset.value = 0
-      hasMoreHistory.value = true
+      hasMoreHistory.value = !demoEnabled
       chatError.value = ''
+      pendingUserQueue.value = []
       inputResetToken.value += 1
     }
     return
   }
 
-  stopCurrentReply({ clearError: true })
+  stopCurrentReply({ clearError: true, continueQueue: false })
+  pendingUserQueue.value = []
   inputResetToken.value += 1
   await loadHistory({ reset: true })
   inputRef.value?.focus()
 }, { immediate: true })
 
 onBeforeUnmount(() => {
-  stopCurrentReply({ clearError: true })
+  stopCurrentReply({ clearError: true, continueQueue: false })
 })
 
-const chatEnabled = computed(() => Boolean(props.character?.friend_id))
+const chatEnabled = computed(() => Boolean(props.character?.friend_id || (props.demoEnabled && props.character?.id)))
 const inputPlaceholder = computed(() => {
+  if (props.demoEnabled) return '输入一句话，或切到语音开始试玩。'
   if (chatEnabled.value) return '输入一句话，按 Enter 发送。'
   if (!props.canManageFriend) return '登录后开始聊天。'
   return '正在准备聊天会话，请稍等。'
 })
 const inputDisabledReason = computed(() => {
+  if (props.demoEnabled) return ''
   if (chatEnabled.value) return ''
   if (!props.canManageFriend) return '登录后才能开始文字和语音对话。'
   return '当前聊天会话还没准备好，请稍等或点击顶部按钮重新开始。'
 })
 
-const handleSend = async (message: string) => {
-  if (!props.character?.friend_id) return
-  stopCurrentReply({ clearError: true })
+const processNextQueuedMessage = async () => {
+  if (sendingMessage.value || activeStreamController || !props.character || (!props.character.friend_id && !props.demoEnabled)) return
+  const [nextMessage, ...rest] = pendingUserQueue.value
+  if (!nextMessage) return
+  pendingUserQueue.value = rest
+  await sendMessageNow(nextMessage.content, nextMessage.id, nextMessage.created_at)
+}
 
-  const userMessage: ChatMessage = {
-    id: crypto.randomUUID(),
-    role: 'user',
-    content: message,
-    created_at: new Date().toISOString(),
-  }
+const sendMessageNow = async (message: string, existingUserMessageId?: string, existingCreatedAt?: string) => {
+  if (!props.character || (!props.character.friend_id && !props.demoEnabled)) return
+  if (activeStreamController) return
+
+  stopAudioPlayback()
+  chatError.value = ''
+
+  const currentUserMessageId = existingUserMessageId || createUserMessage(message).id
+
   const assistantMessage: ChatMessage = {
     id: crypto.randomUUID(),
     role: 'assistant',
     content: '',
-    created_at: new Date().toISOString(),
+    created_at: existingCreatedAt || new Date().toISOString(),
   }
 
-  appendMessage(userMessage)
   appendMessage(assistantMessage)
-  chatError.value = ''
   sendingMessage.value = true
   activeAssistantMessageId = assistantMessage.id
   activeStreamController = new AbortController()
@@ -323,11 +383,17 @@ const handleSend = async (message: string) => {
 
   try {
     await streamApi({
-      url: '/friend/message/chat/',
-      body: {
-        friend_id: props.character.friend_id,
-        message,
-      },
+      url: props.demoEnabled ? '/demo/chat/' : '/friend/message/chat/',
+      body: props.demoEnabled
+        ? {
+          character_id: props.character.id,
+          message,
+          history: buildDemoHistoryBefore(currentUserMessageId),
+        }
+        : {
+          friend_id: props.character.friend_id,
+          message,
+        },
       signal: activeStreamController.signal,
       onmessage(json, done) {
         if (json.meta?.history_increment) {
@@ -354,6 +420,7 @@ const handleSend = async (message: string) => {
           }
           activeAssistantMessageId = null
           activeStreamController = null
+          void processNextQueuedMessage()
           return
         }
 
@@ -376,6 +443,7 @@ const handleSend = async (message: string) => {
         ))
         activeAssistantMessageId = null
         activeStreamController = null
+        void processNextQueuedMessage()
       },
     })
   } finally {
@@ -383,6 +451,18 @@ const handleSend = async (message: string) => {
       sendingMessage.value = false
     }
   }
+}
+
+const handleSend = async (message: string) => {
+  if (!props.character || (!props.character.friend_id && !props.demoEnabled)) return
+
+  if (sendingMessage.value || activeStreamController) {
+    queueUserMessage(message)
+    await chatHistoryRef.value?.scrollToBottom()
+    return
+  }
+
+  await sendMessageNow(message)
 }
 </script>
 
@@ -395,7 +475,13 @@ const handleSend = async (message: string) => {
         <div>
           <div class="text-sm font-black text-base-content/80">对话</div>
           <div class="mt-1 text-xs text-base-content/50">
-            {{ character?.friend_id ? '文字和语音都已就绪。' : '会话尚未建立。' }}
+            {{
+              pendingUserQueue.length
+                ? `已有 ${pendingUserQueue.length} 条消息排队等待回复。`
+                : (demoEnabled
+                  ? '当前为游客试玩会话，文字和语音都不会保存长期记忆。'
+                  : (character?.friend_id ? '文字和语音都已就绪。' : '会话尚未建立。'))
+            }}
           </div>
         </div>
         <div class="rounded-full border border-base-200 bg-base-50 px-3 py-1 text-xs font-bold text-base-content/55">
@@ -427,6 +513,8 @@ const handleSend = async (message: string) => {
             :pending="sendingMessage || isReplySpeaking || pending"
             :placeholder="inputPlaceholder"
             :reset-token="inputResetToken"
+            :allow-voice-mode="true"
+            :asr-endpoint="demoEnabled ? '/demo/asr/' : '/friend/message/asr/'"
             @send="handleSend"
             @stop="stopCurrentReply"
           />

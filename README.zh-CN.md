@@ -98,7 +98,7 @@ AIFriends 当前不是：
 ### 1. 克隆仓库
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Daowuu/AIFriends.git
 cd AIFriends
 ```
 

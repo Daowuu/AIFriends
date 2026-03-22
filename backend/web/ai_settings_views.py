@@ -14,6 +14,7 @@ from web.ai_settings_service import (
     get_runtime_summary,
     resolve_user_asr_settings_payload,
     resolve_user_ai_settings_payload,
+    save_runtime_env_settings,
     serialize_provider_options,
     serialize_user_ai_settings,
 )
@@ -50,40 +51,9 @@ def user_ai_settings_view(request):
     if provider not in PROVIDER_CONFIGS:
         return Response({'detail': '不支持的模型提供方。'}, status=status.HTTP_400_BAD_REQUEST)
 
-    enabled = str(request.data.get('enabled', settings.enabled)).lower() in {'1', 'true', 'yes', 'on'}
-    clear_api_key = str(request.data.get('clear_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
-    api_key = str(request.data.get('api_key', '')).strip()
-    api_base = str(request.data.get('api_base', '')).strip()
-    model_name = str(request.data.get('model_name', '')).strip()
-    chat_supports_dashscope_audio = str(
-        request.data.get('chat_supports_dashscope_audio', settings.chat_supports_dashscope_audio),
-    ).lower() in {'1', 'true', 'yes', 'on'}
-    asr_enabled = str(request.data.get('asr_enabled', settings.asr_enabled)).lower() in {'1', 'true', 'yes', 'on'}
-    clear_asr_api_key = str(request.data.get('clear_asr_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
-    asr_api_key = str(request.data.get('asr_api_key', '')).strip()
-    asr_api_base = str(request.data.get('asr_api_base', '')).strip()
-    asr_model_name = str(request.data.get('asr_model_name', '')).strip()
-
-    settings.enabled = enabled
-    settings.provider = provider
-    settings.api_base = api_base[:512]
-    settings.model_name = model_name[:128]
-    settings.chat_supports_dashscope_audio = chat_supports_dashscope_audio
-    settings.asr_enabled = asr_enabled
-    settings.asr_api_base = asr_api_base[:512]
-    settings.asr_model_name = asr_model_name[:128]
-
-    if clear_api_key:
-        settings.api_key = ''
-    elif api_key:
-        settings.api_key = api_key[:512]
-
-    if clear_asr_api_key:
-        settings.asr_api_key = ''
-    elif asr_api_key:
-        settings.asr_api_key = asr_api_key[:512]
-
-    settings.save()
+    chat_payload = resolve_user_ai_settings_payload(settings, request.data)
+    asr_payload = resolve_user_asr_settings_payload(settings, request.data)
+    settings = save_runtime_env_settings(chat_payload=chat_payload, asr_payload=asr_payload)
 
     return Response({
         'settings': serialize_user_ai_settings(settings),

@@ -147,27 +147,31 @@ AIFriends 现在是一个单实例角色 AI 项目。
 - 最近对话注入 prompt
 - 记忆刷新 transcript 构造
 
-### 3.4 UserAISettings（当前作为单实例 runtime 设置）
+### 3.4 Runtime Env（Studio 与 `backend/.env` 同步）
 
-数据库里模型名仍然叫 `UserAISettings`，但当前产品语义里它承担的是 **单实例本地 runtime 配置**。
+当前项目的 chat / ASR runtime 不再走用户级数据库配置，而是统一收敛到 `backend/.env`。
+
+Studio 中的运行时设置页与 `backend/.env` 读写同一份配置，后端运行时解析也直接从这份文件读取。
 
 关键字段：
 
-- `enabled`
-- `provider`
-- `api_key`
-- `api_base`
-- `model_name`
-- `chat_supports_dashscope_audio`
-- `asr_enabled`
-- `asr_api_key`
-- `asr_api_base`
-- `asr_model_name`
+- `RUNTIME_ENABLED`
+- `API_PROVIDER`
+- `API_KEY`
+- `API_BASE`
+- `CHAT_MODEL`
+- `CHAT_SUPPORTS_DASHSCOPE_AUDIO`
+- `ASR_ENABLED`
+- `ASR_API_KEY`
+- `ASR_API_BASE`
+- `ASR_MODEL`
+- `TTS_MODEL`
 
 当前语义：
 
-- 这是项目本地唯一的一套运行时配置
-- 如果关闭，就回退到 `backend/.env` 里的系统配置
+- 这是项目唯一一份运行时配置
+- Studio 改动会同步回 `backend/.env`
+- 后端解析 chat / ASR / TTS 时直接读取这份配置
 
 ### 3.5 Voice
 
@@ -196,10 +200,10 @@ AIFriends 现在是一个单实例角色 AI 项目。
 
 当前解析顺序：
 
-1. 读取本地保存的 runtime 配置
-2. 如果本地配置关闭，读取 `backend/.env` 中的系统默认配置
-3. 如果本地配置启用但缺 key / base / model，返回 `invalid`
-4. 如果本地和系统都没有可用聊天配置，返回 `missing`
+1. 读取 `backend/.env` 中的同步运行时配置
+2. 如果 `RUNTIME_ENABLED=false`，返回 `missing`
+3. 如果已启用但缺 key / base / model，返回 `invalid`
+4. 如果配置完整，返回 `ok`
 
 当前输出：
 
@@ -216,7 +220,7 @@ AIFriends 现在是一个单实例角色 AI 项目。
 
 聊天配置是否允许复用给语音链路，当前由三层判定：
 
-1. 本地显式开启 `chat_supports_dashscope_audio`
+1. 显式开启 `chat_supports_dashscope_audio`
 2. provider 本身是 `aliyun`
 3. `api_base` 命中 DashScope 域名兜底
 

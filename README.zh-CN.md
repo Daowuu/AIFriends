@@ -45,17 +45,21 @@ cd ..
 
 - [backend/.env](/Users/apple/project/AIFrients/backend/.env)
 
+`/studio` 里的运行时设置会直接读取并回写这同一份文件。
+
 ## 最小配置
 
 最重要的变量：
 
 ```env
+RUNTIME_ENABLED="true"
 API_PROVIDER="aliyun"
 API_KEY=""
 API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 CHAT_MODEL="qwen-plus"
 CHAT_SUPPORTS_DASHSCOPE_AUDIO="true"
 
+ASR_ENABLED="false"
 ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"

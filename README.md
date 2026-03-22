@@ -45,17 +45,21 @@ Edit:
 
 - [backend/.env](/Users/apple/project/AIFrients/backend/.env)
 
+`/studio` reads and writes this same file. Runtime settings changed in Studio are synced back to `backend/.env`.
+
 ## Minimal Config
 
 Most important variables:
 
 ```env
+RUNTIME_ENABLED="true"
 API_PROVIDER="aliyun"
 API_KEY=""
 API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 CHAT_MODEL="qwen-plus"
 CHAT_SUPPORTS_DASHSCOPE_AUDIO="true"
 
+ASR_ENABLED="false"
 ASR_API_KEY=""
 ASR_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
 ASR_MODEL="qwen3-asr-flash"

@@ -284,7 +284,7 @@ onMounted(() => {
           <div class="text-xs font-black uppercase tracking-[0.28em] text-sky-600">Runtime Config</div>
           <h1 class="mt-3 text-3xl font-black tracking-tight text-base-content sm:text-4xl">运行时配置</h1>
           <p class="mt-3 text-sm leading-7 text-base-content/65 sm:text-[15px]">
-            这里统一管理聊天模型和语音识别的运行时配置。聊天与 ASR 分开保存、分开测试，但都保持在同一个设置页里，避免来回切换。
+            这里统一管理 Studio 与 `backend/.env` 同步的聊天、ASR 和语音播报配置。你在这里保存的内容，就是当前实例真实生效的运行时配置。
           </p>
         </div>
 
@@ -292,13 +292,13 @@ onMounted(() => {
           <div class="rounded-[24px] border border-base-200 bg-white px-4 py-3 shadow-sm">
             <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">聊天模式</div>
             <div class="mt-2 text-sm font-semibold text-base-content">
-              {{ enabled ? '本地配置优先' : '系统默认' }}
+              {{ enabled ? '已启用同步运行时' : '已关闭聊天运行时' }}
             </div>
           </div>
           <div class="rounded-[24px] border border-base-200 bg-white px-4 py-3 shadow-sm">
             <div class="text-xs font-bold uppercase tracking-[0.18em] text-base-content/45">ASR 模式</div>
             <div class="mt-2 text-sm font-semibold text-base-content">
-              {{ asrEnabled ? '独立语音配置' : '复用聊天或系统环境' }}
+              {{ asrEnabled ? '独立 ASR 配置' : '复用聊天语音链路' }}
             </div>
           </div>
         </div>
@@ -342,11 +342,11 @@ onMounted(() => {
                   <div class="max-w-2xl">
                     <div class="text-sm font-bold text-base-content">运行方式</div>
                     <p class="mt-1 text-sm leading-7 text-base-content/60">
-                      开启后优先使用本地保存的聊天配置；关闭后直接回退到当前部署环境里的默认聊天配置。
+                      开启后会直接使用当前 Studio 与 `backend/.env` 同步的聊天配置；关闭后当前实例不启用聊天运行时。
                     </p>
                   </div>
                   <label class="label cursor-pointer justify-start gap-3 rounded-full border border-sky-200 bg-white px-4 py-3 shadow-sm">
-                    <span class="text-sm font-semibold text-base-content">启用本地配置</span>
+                    <span class="text-sm font-semibold text-base-content">启用聊天运行时</span>
                     <input v-model="enabled" type="checkbox" class="toggle toggle-primary" />
                   </label>
                 </div>
@@ -585,7 +585,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between gap-3">
                   <div class="text-sm font-black text-base-content">聊天</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm">
-                    {{ enabled ? '本地配置' : '环境默认' }}
+                    {{ enabled ? 'Studio / .env' : '运行时已关闭' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">
@@ -608,7 +608,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between gap-3">
                   <div class="text-sm font-black text-base-content">语音识别</div>
                   <div class="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">
-                    {{ asrEnabled ? '独立 ASR' : '复用聊天/环境' }}
+                    {{ asrEnabled ? '独立 ASR' : '复用聊天链路' }}
                   </div>
                 </div>
                 <div class="mt-4 space-y-3 text-sm">

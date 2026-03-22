@@ -1,6 +1,10 @@
-from django.conf import settings as django_settings
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
-from web.local_runtime import get_local_ai_settings
+from django.conf import settings as django_settings
+from dotenv import dotenv_values, set_key
+
 from web.models import Character
 
 ASR_DEFAULT_API_BASE = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
@@ -42,8 +46,20 @@ PROVIDER_CONFIGS = {
 }
 
 
-def get_local_runtime_settings():
-    return get_local_ai_settings()
+@dataclass
+class RuntimeEnvSettings:
+    enabled: bool
+    provider: str
+    api_key: str
+    api_base: str
+    model_name: str
+    chat_supports_dashscope_audio: bool
+    asr_enabled: bool
+    asr_api_key: str
+    asr_api_base: str
+    asr_model_name: str
+    updated_at: str
+    env_path: Path
 
 
 def get_provider_config(provider):
@@ -63,7 +79,72 @@ def serialize_provider_options():
     ]
 
 
-def serialize_user_ai_settings(settings):
+def _get_runtime_env_path():
+    backend_env = Path(django_settings.BASE_DIR) / '.env'
+    root_env = Path(django_settings.BASE_DIR).parent / '.env'
+    if backend_env.exists():
+        return backend_env
+    if root_env.exists():
+        return root_env
+    return backend_env
+
+
+def _load_runtime_env_values():
+    env_path = _get_runtime_env_path()
+    values = dotenv_values(env_path) if env_path.exists() else {}
+    return env_path, values
+
+
+def _env_str(values, key, default=''):
+    value = values.get(key)
+    if value is None:
+        return default
+    return str(value).strip()
+
+
+def _env_bool(values, key, default=False):
+    value = values.get(key)
+    if value is None:
+        return default
+    return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _format_file_updated_at(path: Path):
+    if not path.exists():
+        return ''
+    return datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat()
+
+
+def get_local_runtime_settings():
+    env_path, values = _load_runtime_env_values()
+    provider = _env_str(values, 'API_PROVIDER', 'aliyun') or 'aliyun'
+    api_key = _env_str(values, 'API_KEY', '')
+    api_base = _env_str(values, 'API_BASE', '')
+    model_name = _env_str(values, 'CHAT_MODEL', '')
+    asr_api_key = _env_str(values, 'ASR_API_KEY', '')
+    asr_api_base = _env_str(values, 'ASR_API_BASE', '')
+    asr_model_name = _env_str(values, 'ASR_MODEL', '')
+
+    enabled = _env_bool(values, 'RUNTIME_ENABLED', bool(api_key or api_base))
+    asr_enabled = _env_bool(values, 'ASR_ENABLED', bool(asr_api_key or asr_api_base))
+
+    return RuntimeEnvSettings(
+        enabled=enabled,
+        provider=provider,
+        api_key=api_key,
+        api_base=api_base,
+        model_name=model_name,
+        chat_supports_dashscope_audio=_env_bool(values, 'CHAT_SUPPORTS_DASHSCOPE_AUDIO', False),
+        asr_enabled=asr_enabled,
+        asr_api_key=asr_api_key,
+        asr_api_base=asr_api_base,
+        asr_model_name=asr_model_name,
+        updated_at=_format_file_updated_at(env_path),
+        env_path=env_path,
+    )
+
+
+def serialize_user_ai_settings(settings: RuntimeEnvSettings):
     provider_config = get_provider_config(settings.provider)
     return {
         'enabled': settings.enabled,
@@ -80,7 +161,7 @@ def serialize_user_ai_settings(settings):
         'has_asr_api_key': bool(settings.asr_api_key.strip()),
         'resolved_asr_api_base': settings.asr_api_base.strip() or ASR_DEFAULT_API_BASE,
         'resolved_asr_model_name': settings.asr_model_name.strip() or ASR_DEFAULT_MODEL_NAME,
-        'updated_at': settings.updated_at.isoformat(),
+        'updated_at': settings.updated_at,
     }
 
 
@@ -125,7 +206,7 @@ def resolve_dashscope_audio_reuse_source(*, explicit_enabled: bool, provider: st
     return ''
 
 
-def resolve_user_ai_settings_payload(settings, payload):
+def resolve_user_ai_settings_payload(settings: RuntimeEnvSettings, payload):
     provider = str(payload.get('provider', settings.provider)).strip() or settings.provider
     provider_config = get_provider_config(provider)
     clear_api_key = str(payload.get('clear_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
@@ -135,15 +216,19 @@ def resolve_user_ai_settings_payload(settings, payload):
     model_name = str(payload.get('model_name', settings.model_name)).strip() or provider_config['default_model_name']
 
     return {
+        'enabled': str(payload.get('enabled', settings.enabled)).lower() in {'1', 'true', 'yes', 'on'},
         'provider': provider,
         'api_key': api_key,
         'api_base': api_base,
         'model_name': model_name,
         'clear_api_key': clear_api_key,
+        'chat_supports_dashscope_audio': str(
+            payload.get('chat_supports_dashscope_audio', settings.chat_supports_dashscope_audio),
+        ).lower() in {'1', 'true', 'yes', 'on'},
     }
 
 
-def resolve_user_asr_settings_payload(settings, payload):
+def resolve_user_asr_settings_payload(settings: RuntimeEnvSettings, payload):
     asr_enabled = str(payload.get('asr_enabled', settings.asr_enabled)).lower() in {'1', 'true', 'yes', 'on'}
     clear_asr_api_key = str(payload.get('clear_asr_api_key', '')).lower() in {'1', 'true', 'yes', 'on'}
     raw_api_key = str(payload.get('asr_api_key', '')).strip()
@@ -160,78 +245,98 @@ def resolve_user_asr_settings_payload(settings, payload):
     }
 
 
+def save_runtime_env_settings(chat_payload=None, asr_payload=None):
+    settings = get_local_runtime_settings()
+    env_path = settings.env_path
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    if not env_path.exists():
+        env_path.touch()
+
+    if chat_payload is not None:
+        set_key(env_path, 'RUNTIME_ENABLED', 'true' if chat_payload['enabled'] else 'false', quote_mode='always')
+        set_key(env_path, 'API_PROVIDER', chat_payload['provider'], quote_mode='always')
+        set_key(env_path, 'API_KEY', chat_payload['api_key'], quote_mode='always')
+        set_key(env_path, 'API_BASE', chat_payload['api_base'], quote_mode='always')
+        set_key(env_path, 'CHAT_MODEL', chat_payload['model_name'], quote_mode='always')
+        set_key(
+            env_path,
+            'CHAT_SUPPORTS_DASHSCOPE_AUDIO',
+            'true' if chat_payload['chat_supports_dashscope_audio'] else 'false',
+            quote_mode='always',
+        )
+
+    if asr_payload is not None:
+        set_key(env_path, 'ASR_ENABLED', 'true' if asr_payload['asr_enabled'] else 'false', quote_mode='always')
+        set_key(env_path, 'ASR_API_KEY', asr_payload['asr_api_key'], quote_mode='always')
+        set_key(env_path, 'ASR_API_BASE', asr_payload['asr_api_base'], quote_mode='always')
+        set_key(env_path, 'ASR_MODEL', asr_payload['asr_model_name'], quote_mode='always')
+
+    return get_local_runtime_settings()
+
+
 def get_server_ai_runtime_defaults():
-    return getattr(django_settings, 'AI_RUNTIME', {
-        'chat': {},
-        'asr': {},
-        'tts': {},
-    })
+    settings = get_local_runtime_settings()
+    return {
+        'chat': {
+            'enabled': settings.enabled,
+            'provider': settings.provider,
+            'api_key': settings.api_key,
+            'api_base': settings.api_base,
+            'model_name': settings.model_name,
+            'supports_dashscope_audio': settings.chat_supports_dashscope_audio,
+        },
+        'asr': {
+            'enabled': settings.asr_enabled,
+            'api_key': settings.asr_api_key,
+            'api_base': settings.asr_api_base,
+            'model_name': settings.asr_model_name,
+        },
+        'tts': {
+            'model_name': str(getattr(django_settings, 'AI_RUNTIME', {}).get('tts', {}).get('model_name', '')).strip()
+            or 'cosyvoice-v3.5-plus',
+        },
+        'demo_quota': getattr(django_settings, 'AI_RUNTIME', {}).get('demo_quota', {}),
+    }
 
 
 def get_runtime_ai_resolution():
-    settings = get_local_runtime_settings()
-    server_runtime = get_server_ai_runtime_defaults()
-    server_chat = server_runtime.get('chat', {})
+    runtime = get_server_ai_runtime_defaults()
+    chat = runtime.get('chat', {})
+    provider = str(chat.get('provider', '')).strip() or 'aliyun'
+    provider_config = get_provider_config(provider)
 
-    if settings.enabled:
-        provider_config = get_provider_config(settings.provider)
-        api_key = settings.api_key.strip()
-        api_base = settings.api_base.strip() or provider_config['default_api_base']
-        model_name = settings.model_name.strip() or provider_config['default_model_name']
+    if not chat.get('enabled', False):
+        return {'status': 'missing', 'reason': 'runtime_disabled', 'config': None}
 
-        if not api_key:
-            return {'status': 'invalid', 'reason': 'local_missing_api_key', 'config': None}
-        if not api_base:
-            return {'status': 'invalid', 'reason': 'local_missing_api_base', 'config': None}
-        if not model_name:
-            return {'status': 'invalid', 'reason': 'local_missing_model_name', 'config': None}
+    api_key = str(chat.get('api_key', '')).strip()
+    api_base = str(chat.get('api_base', '')).strip() or provider_config['default_api_base']
+    model_name = str(chat.get('model_name', '')).strip() or provider_config['default_model_name']
 
-        dashscope_audio_reuse_source = resolve_dashscope_audio_reuse_source(
-            explicit_enabled=settings.chat_supports_dashscope_audio,
-            provider=settings.provider,
-            api_base=api_base,
-            source_prefix='local',
-        )
-        return {
-            'status': 'ok',
-            'reason': '',
-            'config': {
-                'source': 'local',
-                'provider': settings.provider,
-                'api_key': api_key,
-                'api_base': api_base,
-                'model_name': model_name,
-                'dashscope_audio_enabled': bool(dashscope_audio_reuse_source),
-                'dashscope_audio_reuse_source': dashscope_audio_reuse_source,
-                'label': '本地运行时配置',
-            },
-        }
+    if not api_key:
+        return {'status': 'invalid', 'reason': 'local_missing_api_key', 'config': None}
+    if not api_base:
+        return {'status': 'invalid', 'reason': 'local_missing_api_base', 'config': None}
+    if not model_name:
+        return {'status': 'invalid', 'reason': 'local_missing_model_name', 'config': None}
 
-    api_key = str(server_chat.get('api_key', '')).strip()
-    api_base = str(server_chat.get('api_base', '')).strip()
-    model_name = str(server_chat.get('model_name', 'qwen-plus')).strip() or 'qwen-plus'
-
-    if not api_key or not api_base:
-        return {'status': 'missing', 'reason': 'no_runtime_config', 'config': None}
-
-    dashscope_audio_reuse_source = ''
-    if bool(server_chat.get('supports_dashscope_audio', False)):
-        dashscope_audio_reuse_source = 'env_explicit_toggle'
-    elif is_dashscope_compatible_api_base(api_base):
-        dashscope_audio_reuse_source = 'env_domain_fallback'
-
+    dashscope_audio_reuse_source = resolve_dashscope_audio_reuse_source(
+        explicit_enabled=bool(chat.get('supports_dashscope_audio', False)),
+        provider=provider,
+        api_base=api_base,
+        source_prefix='runtime_env',
+    )
     return {
         'status': 'ok',
         'reason': '',
         'config': {
-            'source': 'env',
-            'provider': str(server_chat.get('provider', '')).strip() or 'env',
+            'source': 'runtime_env',
+            'provider': provider,
             'api_key': api_key,
             'api_base': api_base,
             'model_name': model_name,
             'dashscope_audio_enabled': bool(dashscope_audio_reuse_source),
             'dashscope_audio_reuse_source': dashscope_audio_reuse_source,
-            'label': '系统默认运行时配置',
+            'label': 'Studio / .env 同步配置',
         },
     }
 
@@ -241,21 +346,20 @@ def get_public_runtime_ai_resolution():
 
 
 def get_dashscope_runtime_config():
-    settings = get_local_runtime_settings()
-    server_runtime = get_server_ai_runtime_defaults()
-    server_chat = server_runtime.get('chat', {})
-    server_asr = server_runtime.get('asr', {})
+    runtime = get_server_ai_runtime_defaults()
+    asr = runtime.get('asr', {})
 
-    if settings.asr_enabled:
-        if not settings.asr_api_key.strip():
+    if asr.get('enabled', False):
+        api_key = str(asr.get('api_key', '')).strip()
+        if not api_key:
             return None
         return {
-            'source': 'local_asr',
+            'source': 'runtime_asr',
             'provider': 'aliyun',
-            'api_key': settings.asr_api_key.strip(),
-            'api_base': settings.asr_api_base.strip() or ASR_DEFAULT_API_BASE,
-            'model_name': settings.asr_model_name.strip() or ASR_DEFAULT_MODEL_NAME,
-            'label': '本地 ASR 配置',
+            'api_key': api_key,
+            'api_base': str(asr.get('api_base', '')).strip() or ASR_DEFAULT_API_BASE,
+            'model_name': str(asr.get('model_name', '')).strip() or ASR_DEFAULT_MODEL_NAME,
+            'label': 'Studio / .env 独立 ASR 配置',
         }
 
     runtime_resolution = get_runtime_ai_resolution()
@@ -266,31 +370,12 @@ def get_dashscope_runtime_config():
             'provider': 'aliyun',
             'api_key': runtime_config['api_key'],
             'api_base': runtime_config['api_base'],
-            'model_name': str(server_asr.get('model_name', ASR_DEFAULT_MODEL_NAME)).strip() or ASR_DEFAULT_MODEL_NAME,
+            'model_name': str(asr.get('model_name', '')).strip() or ASR_DEFAULT_MODEL_NAME,
             'label': '复用聊天运行时配置',
             'dashscope_audio_reuse_source': runtime_config.get('dashscope_audio_reuse_source', ''),
         }
 
-    api_key = str(server_asr.get('api_key', '')).strip() or str(server_chat.get('api_key', '')).strip()
-    api_base = str(server_asr.get('api_base', '')).strip() or str(server_chat.get('api_base', '')).strip()
-    model_name = str(server_asr.get('model_name', '')).strip() or ASR_DEFAULT_MODEL_NAME
-    explicit_asr_base = bool(str(server_asr.get('api_base', '')).strip())
-
-    if not api_key or not api_base:
-        return None
-
-    if not explicit_asr_base and not bool(server_chat.get('supports_dashscope_audio', False)) and not is_dashscope_compatible_api_base(api_base):
-        return None
-
-    return {
-        'source': 'env',
-        'provider': 'aliyun',
-        'api_key': api_key,
-        'api_base': api_base,
-        'model_name': model_name,
-        'label': '系统语音配置',
-        'dashscope_audio_reuse_source': 'env_explicit_asr_base' if explicit_asr_base else 'env_domain_fallback',
-    }
+    return None
 
 
 def get_public_dashscope_runtime_config():
@@ -329,11 +414,11 @@ def get_runtime_summary():
 
     if chat_resolution['status'] == 'invalid':
         chat_runtime_config = {
-            'source': 'local_invalid',
+            'source': 'runtime_invalid',
             'provider': '',
             'api_base': '',
             'model_name': '',
-            'label': '本地聊天配置不完整',
+            'label': '运行时配置不完整',
             'reason': chat_resolution['reason'],
         }
 
@@ -349,9 +434,9 @@ def get_runtime_summary():
         }
 
     return {
-        'chat_runtime': serialize_runtime_config(chat_runtime_config, fallback_label='系统默认或本地回退'),
-        'asr_runtime': serialize_runtime_config(asr_runtime_config, fallback_label='聊天配置或系统环境'),
-        'tts_runtime': serialize_runtime_config(tts_runtime_config, fallback_label='DashScope 语音播报未启用'),
+        'chat_runtime': serialize_runtime_config(chat_runtime_config, fallback_label='当前未启用聊天配置'),
+        'asr_runtime': serialize_runtime_config(asr_runtime_config, fallback_label='当前未启用独立 ASR 或聊天语音复用'),
+        'tts_runtime': serialize_runtime_config(tts_runtime_config, fallback_label='当前未启用语音播报'),
         'chat_runtime_status': chat_resolution['status'],
         'chat_runtime_reason': chat_resolution['reason'],
         'dashscope_audio_reuse_source': (

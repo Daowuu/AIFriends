@@ -6,6 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from web.api_helpers import serialize_character, serialize_character_list
+from web.local_runtime import ensure_default_characters
 from web.models import Character
 
 
@@ -54,6 +55,7 @@ def _build_paginated_response(queryset, request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def homepage_index_view(request):
+    ensure_default_characters()
     queryset = Character.objects.select_related('voice').all().order_by('sort_order', 'id')
     return _build_paginated_response(queryset, request)
 

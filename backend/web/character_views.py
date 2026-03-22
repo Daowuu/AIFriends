@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from web.api_helpers import serialize_character, serialize_character_list, serialize_voice
-from web.local_runtime import ensure_demo_voice_configs, get_or_create_local_operator_user
+from web.local_runtime import ensure_default_characters, ensure_demo_voice_configs, get_or_create_local_operator_user
 from web.media_utils import remove_stored_file, replace_stored_file
 from web.models import Character, Voice
 
@@ -247,6 +247,7 @@ def remove_character_voice_view(request, voice_id):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_characters_view(request):
+    ensure_default_characters()
     characters = Character.objects.filter(user=get_or_create_local_operator_user()).select_related('voice').order_by('sort_order', 'id')
     return Response(
         {'characters': serialize_character_list(characters)},

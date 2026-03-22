@@ -21,6 +21,15 @@ env/
 backend/.env
 backend/db.sqlite3
 backend/media/
+!backend/media
+!backend/media/character/
+!backend/media/character
+!backend/media/character/photos/
+!backend/media/character/photos
+!backend/media/character/photos/elysia-avatar.png
+!backend/media/character/backgrounds/
+!backend/media/character/backgrounds
+!backend/media/character/backgrounds/elysia-background.webp
 backend/staticfiles/
 
 # Frontend

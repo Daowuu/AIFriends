@@ -29,6 +29,7 @@ from web.discussion_services import (
 )
 from web.local_runtime import (
     ELYSIA_DEMO_VOICE_CODE,
+    ensure_default_characters,
     ensure_demo_voice_configs,
     get_or_create_local_operator_user,
 )
@@ -117,6 +118,30 @@ class DagRuntimeTests(TestCase):
 
         with self.assertRaisesMessage(ValueError, '不是合法拓扑结构'):
             initialize_runtime(runtime)
+
+
+class CharacterSeedTests(TestCase):
+    def test_character_list_auto_seeds_builtin_characters(self):
+        self.assertEqual(Character.objects.count(), 0)
+
+        response = self.client.get('/api/character/list/')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertGreaterEqual(len(payload['characters']), 15)
+        self.assertEqual(payload['characters'][0]['name'], '爱莉希雅')
+        self.assertTrue(any(character['name'] == '凯文' for character in payload['characters']))
+        self.assertTrue(any(character['name'] == '雷电芽衣' for character in payload['characters']))
+        self.assertEqual(Character.objects.filter(user=get_or_create_local_operator_user()).count(), len(payload['characters']))
+
+    def test_builtin_seed_preserves_elysia_media_and_voice(self):
+        ensure_default_characters()
+
+        elysia = Character.objects.get(name='爱莉希雅')
+        self.assertTrue(elysia.photo.name.endswith('elysia-avatar.png'))
+        self.assertTrue(elysia.background_image.name.endswith('elysia-background.webp'))
+        self.assertIsNotNone(elysia.voice)
+        self.assertEqual(elysia.voice.voice_code, ELYSIA_DEMO_VOICE_CODE)
 
 
 class RuntimeEnvSettingsTests(TestCase):

@@ -171,6 +171,12 @@ const resetCustomVoiceDraft = () => {
   customVoiceMessage.value = ''
 }
 
+const getVoicePreviewValidationError = () => {
+  if (selectedVoiceId.value) return ''
+  if (customVoiceCode.value.trim()) return ''
+  return '请先在角色配置里选择一个音色，或填写自定义 voice_id，再来试听。'
+}
+
 const inferAssetContentType = (assetPath: string) => {
   if (assetPath.endsWith('.png')) return 'image/png'
   if (assetPath.endsWith('.webp')) return 'image/webp'
@@ -262,6 +268,12 @@ const previewVoiceFromCurrentDraft = async (customText?: string) => {
     return
   }
 
+  const validationError = getVoicePreviewValidationError()
+  if (validationError) {
+    voicePreviewError.value = validationError
+    throw new Error(validationError)
+  }
+
   voicePreviewError.value = ''
   isPreviewingVoice.value = true
 
@@ -317,11 +329,16 @@ const previewVoiceFromCurrentDraft = async (customText?: string) => {
       voicePreviewError.value = error.message || voicePreviewError.value
     }
     stopVoicePreview()
+    throw new Error(voicePreviewError.value || '音色试听失败。')
   }
 }
 
 const handlePreviewVoice = async () => {
-  await previewVoiceFromCurrentDraft()
+  try {
+    await previewVoiceFromCurrentDraft()
+  } catch {
+    // The local preview area already shows the concrete error.
+  }
 }
 
 const saveCustomVoice = async () => {
@@ -424,6 +441,7 @@ watch([isPreviewingVoice, voicePreviewError], ([nextPreviewing, nextError]) => {
 }, { immediate: true })
 
 defineExpose({
+  getVoicePreviewValidationError,
   previewVoiceFromCurrentDraft,
   stopVoicePreview,
 })
@@ -437,7 +455,7 @@ defineExpose({
           <div class="border-b border-base-200 pb-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 class="text-xl font-black">角色信息</h2>
+                <h2 class="text-xl font-black">Step 1 · 角色信息</h2>
                 <p class="mt-2 text-sm leading-6 text-base-content/60">
                   先定下角色名字和核心设定，后面的头像、背景和对话气质会更容易统一。
                 </p>
@@ -454,7 +472,7 @@ defineExpose({
           <div class="mt-7 space-y-7">
             <div class="space-y-2">
               <label for="character-name" class="block text-sm font-black text-base-content/80">
-                Step 1 · 角色名字
+                角色名字
               </label>
               <p class="text-xs leading-5 text-base-content/50">
                 建议控制在 2 到 8 个字，便于后续列表和聊天页展示。
@@ -471,7 +489,7 @@ defineExpose({
 
             <div class="space-y-2">
               <label for="character-profile" class="block text-sm font-black text-base-content/80">
-                Step 1 · 角色介绍
+                角色介绍
               </label>
               <p class="text-xs leading-5 text-base-content/50">
                 可以写性格、口头禅、世界观、说话方式，越具体越好。
@@ -492,7 +510,7 @@ defineExpose({
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <label for="character-custom-prompt" class="block text-sm font-black text-base-content/80">
-                    Step 1 · 自定义 Prompt
+                    自定义 Prompt
                   </label>
                   <p class="mt-1 text-xs leading-5 text-base-content/50">
                     这部分只给 AI 看，不直接展示给用户。适合写回复禁忌、关系边界、表达偏好、必须遵守的角色规则。

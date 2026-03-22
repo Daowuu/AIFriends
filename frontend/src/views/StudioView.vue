@@ -9,10 +9,11 @@ import MarkdownContent from '@/components/MarkdownContent.vue'
 import CharacterCard from '@/components/character/CharacterCard.vue'
 import ApiSettingsView from '@/views/ApiSettingsView.vue'
 import type { Character, CharacterFormPayload, VoiceOption } from '@/types/character'
-import type { StudioChatDebug, StudioOverview, StudioRecentDebugSummary } from '@/types/studio'
+import type { StudioChatDebug, StudioOverview, StudioRecentDebugSummary, StudioSessionMemorySummary } from '@/types/studio'
 import { useCharacterChatNavigation } from '@/utils/useCharacterChatNavigation'
 
 type CharacterFormStudioExpose = {
+  getVoicePreviewValidationError: () => string
   previewVoiceFromCurrentDraft: (text?: string) => Promise<void>
   stopVoicePreview: () => void
 }
@@ -26,6 +27,7 @@ const characters = ref<Character[]>([])
 const voices = ref<VoiceOption[]>([])
 const runtimeSummary = ref<StudioOverview['runtime_summary'] | null>(null)
 const recentDebugSummary = ref<StudioRecentDebugSummary | null>(null)
+const sessionMemorySummaries = ref<StudioSessionMemorySummary[]>([])
 const selectedCharacterId = ref<number | null>(null)
 const hasDraftSlot = ref(false)
 const draftSlotVersion = ref(0)
@@ -82,6 +84,11 @@ const testDebugDisplay = computed(() => {
   }
 })
 
+const currentSessionMemorySummary = computed(() => {
+  if (!currentCharacter.value?.id) return null
+  return sessionMemorySummaries.value.find((item) => item.character_id === currentCharacter.value?.id) ?? null
+})
+
 const diagnosticSummary = computed(() => {
   const summary = runtimeSummary.value
   if (!summary) return null
@@ -119,6 +126,92 @@ const diagnosticSummary = computed(() => {
   }
 })
 
+const voiceDiagnosticSummary = computed(() => {
+  const summary = runtimeSummary.value
+  if (!summary?.tts_runtime?.enabled) {
+    return {
+      level: 'warning',
+      title: '语音运行时还没准备好',
+      detail: '当前实例还没有可用的语音 key 或播报配置，所以音色试听无法工作。',
+      action: '去“运行时配置”补全语音 API Key、识别模型和播报模型，然后再回来试听。',
+    }
+  }
+
+  return {
+    level: 'success',
+    title: '语音运行态正常',
+    detail: `当前试听会使用 ${summary.tts_runtime.label}。`,
+    action: summary.tts_runtime.api_base
+      ? `当前语音网关：${summary.tts_runtime.api_base}`
+      : '可以直接试听当前角色音色。',
+  }
+})
+
+const trialChatStatusSummary = computed(() => {
+  const summary = runtimeSummary.value
+  if (!currentCharacter.value?.id) {
+    return {
+      title: '试聊还没准备好',
+      detail: '当前是新角色草稿状态，先保存角色后才能进入正式试聊。',
+      action: '先完成角色配置并保存，再回来试聊。',
+    }
+  }
+
+  if (!summary) {
+    return {
+      title: '试聊状态暂时不可用',
+      detail: '运行时摘要还没加载完成。',
+      action: '稍后重试，或刷新 Studio 页面。',
+    }
+  }
+
+  if (testPending.value) {
+    return {
+      title: '试聊进行中',
+      detail: '当前正在请求聊天模型并等待角色回复。',
+      action: '等这一轮完成后，再看回复结果。',
+    }
+  }
+
+  if (summary.chat_runtime_status === 'invalid') {
+    return {
+      title: '聊天运行时配置不完整',
+      detail: '当前聊天配置无法正常工作，所以试聊不会成功。',
+      action: '去“运行时配置”补全聊天 API Key、API Base 和模型名。',
+    }
+  }
+
+  if (summary.chat_runtime_status === 'missing') {
+    return {
+      title: '当前没有聊天模型配置',
+      detail: '现在只能显示本地保底回复，不适合判断角色真实效果。',
+      action: '先在“运行时配置”里保存一套聊天配置，再回来试聊。',
+    }
+  }
+
+  if (testError.value) {
+    return {
+      title: '上一轮试聊失败',
+      detail: testError.value,
+      action: '调整输入或检查运行时配置后再试一次。',
+    }
+  }
+
+  if (testReply.value.trim()) {
+    return {
+      title: '试聊已完成',
+      detail: '当前角色已经返回一轮回复，可以根据结果继续调 Prompt、记忆模式或语气设定。',
+      action: '如果语气不对，就回到“角色配置”继续微调。',
+    }
+  }
+
+  return {
+    title: '试聊可以开始',
+    detail: `当前会使用 ${summary.chat_runtime.label} 进行角色回复生成。`,
+    action: '输入一句测试话术，看看角色会怎么回应。',
+  }
+})
+
 const loadStudioOverview = async (preferredCharacterId?: number | null) => {
   loading.value = true
   overviewError.value = ''
@@ -129,6 +222,7 @@ const loadStudioOverview = async (preferredCharacterId?: number | null) => {
     voices.value = response.data.voices
     runtimeSummary.value = response.data.runtime_summary
     recentDebugSummary.value = response.data.recent_debug_summary
+    sessionMemorySummaries.value = response.data.session_memory_summaries
 
     const nextSelectedId = preferredCharacterId ?? selectedCharacterId.value
     if (nextSelectedId && response.data.characters.some((character) => character.id === nextSelectedId)) {
@@ -345,7 +439,22 @@ const handleStudioMemoryReset = async () => {
 }
 
 const handleStudioVoicePreview = async () => {
-  if (!characterFormRef.value) return
+  if (!characterFormRef.value) {
+    studioVoicePreviewError.value = '当前角色表单还没准备好，请稍后再试。'
+    return
+  }
+
+  if (!runtimeSummary.value?.tts_runtime?.enabled) {
+    studioVoicePreviewError.value = '当前语音运行时未启用。请先到“运行时配置”补全语音 API Key 和播报模型。'
+    return
+  }
+
+  const validationError = characterFormRef.value.getVoicePreviewValidationError()
+  if (validationError) {
+    studioVoicePreviewError.value = validationError
+    return
+  }
+
   studioVoicePreviewPending.value = true
   studioVoicePreviewError.value = ''
   try {
@@ -491,71 +600,95 @@ onMounted(() => {
           </div>
 
           <div v-show="workspacePanel === 'diagnostics'" class="space-y-6">
-            <div class="rounded-[32px] border border-[#ded4c3] bg-white/78 p-6 shadow-sm">
-              <div class="border-b border-[#e6ddcd] pb-4">
-                <h2 class="text-2xl font-black text-[#15231f]">试聊与诊断</h2>
-                <p class="mt-2 text-sm leading-6 text-[#56635d]">试聊会直接使用当前角色的长期会话与运行时配置，并回显本轮诊断摘要。</p>
-              </div>
-
-              <div class="mt-6 space-y-5">
-                <div>
-                  <label class="block text-sm font-black text-[#22302b]">试聊输入</label>
-                  <textarea v-model="testPrompt" class="textarea textarea-bordered mt-3 min-h-32 w-full bg-white" placeholder="输入一句测试话术，看看角色会怎么回应。" />
+            <div class="grid gap-6 xl:grid-cols-2">
+              <section class="rounded-[32px] border border-[#ded4c3] bg-white/78 p-6 shadow-sm">
+                <div class="border-b border-[#e6ddcd] pb-4">
+                  <h2 class="text-2xl font-black text-[#15231f]">试聊</h2>
+                  <p class="mt-2 text-sm leading-6 text-[#56635d]">试聊会直接使用当前角色的长期会话与聊天运行时，用来判断角色语气和回复走向。</p>
                 </div>
 
-                <div class="flex flex-wrap gap-3">
-                  <button class="btn rounded-full border-none bg-[#16231f] text-[#f7f1e5] hover:bg-[#22362f]" :disabled="testPending || !currentCharacter?.id" @click="runTrialChat">
-                    {{ testPending ? '试聊中...' : '开始试聊' }}
-                  </button>
-                  <button class="btn rounded-full border-[#d6ccb8] bg-white/80 text-[#15231f] hover:bg-[#fff7e8]" :disabled="studioVoicePreviewPending" @click="handleStudioVoicePreview">
-                    {{ studioVoicePreviewPending ? '试听中...' : '试试音色' }}
-                  </button>
-                  <button class="btn rounded-full border-[#d6ccb8] bg-white/80 text-error hover:bg-[#fff7e8]" :disabled="!currentCharacter?.id || memoryActionPending" @click="handleStudioMemoryReset">
-                    {{ memoryActionPending ? '清空中...' : '清空长期记忆' }}
-                  </button>
-                </div>
-
-                <div v-if="testError" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">{{ testError }}</div>
-                <div v-if="studioVoicePreviewError" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">{{ studioVoicePreviewError }}</div>
-                <div v-if="memoryActionMessage" class="rounded-2xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success">{{ memoryActionMessage }}</div>
-                <div v-if="memoryActionError" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">{{ memoryActionError }}</div>
-
-                <div class="rounded-[26px] border border-[#dfd4c1] bg-[#fcfbf7] p-5">
-                  <div class="text-sm font-black text-[#22302b]">试聊回复</div>
-                  <div v-if="testReply" class="mt-4 prose max-w-none text-sm leading-7 text-[#32413b]">
-                    <MarkdownContent :content="testReply" />
+                <div class="mt-6 space-y-5">
+                  <div>
+                    <label class="block text-sm font-black text-[#22302b]">试聊输入</label>
+                    <textarea v-model="testPrompt" class="textarea textarea-bordered mt-3 min-h-32 w-full bg-white" placeholder="输入一句测试话术，看看角色会怎么回应。" />
                   </div>
-                  <div v-else class="mt-4 text-sm text-[#7d7568]">还没有试聊结果。</div>
-                </div>
-              </div>
-            </div>
 
-            <div class="grid gap-4 xl:grid-cols-2">
-              <div class="rounded-[28px] border border-[#ded4c3] bg-white/78 p-5 shadow-sm">
-                <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">实时调试</div>
-                <div v-if="testDebugDisplay" class="mt-4 space-y-3 text-sm text-[#45554d]">
-                  <div><span class="font-black text-[#15231f]">Prompt Layers</span> · {{ testDebugDisplay.promptLayers }}</div>
-                  <div><span class="font-black text-[#15231f]">记忆模式</span> · {{ testDebugDisplay.memoryMode }}</div>
-                  <div><span class="font-black text-[#15231f]">记忆注入</span> · 摘要 {{ testDebugDisplay.usedSummary ? '是' : '否' }} / 关系 {{ testDebugDisplay.usedRelationshipMemory ? '是' : '否' }} / 偏好 {{ testDebugDisplay.usedPreferenceMemory ? '是' : '否' }}</div>
-                  <div><span class="font-black text-[#15231f]">本轮刷新</span> · {{ testDebugDisplay.memoryUpdateReason }}</div>
-                  <div><span class="font-black text-[#15231f]">Runtime</span> · {{ testDebugDisplay.runtimeSource }}</div>
-                  <div><span class="font-black text-[#15231f]">Fallback</span> · {{ testDebugDisplay.fallbackUsed ? '是' : '否' }}</div>
-                  <div v-if="testDebugDisplay.errorTag"><span class="font-black text-[#15231f]">错误标签</span> · {{ testDebugDisplay.errorTag }}</div>
-                </div>
-                <div v-else class="mt-4 text-sm text-[#7d7568]">还没有本轮试聊调试信息。</div>
-              </div>
+                  <div class="flex flex-wrap gap-3">
+                    <button class="btn rounded-full border-none bg-[#16231f] text-[#f7f1e5] hover:bg-[#22362f]" :disabled="testPending || !currentCharacter?.id" @click="runTrialChat">
+                      {{ testPending ? '试聊中...' : '开始试聊' }}
+                    </button>
+                    <button class="btn rounded-full border-[#d6ccb8] bg-white/80 text-error hover:bg-[#fff7e8]" :disabled="!currentCharacter?.id || memoryActionPending" @click="handleStudioMemoryReset">
+                      {{ memoryActionPending ? '清空中...' : '清空长期记忆' }}
+                    </button>
+                  </div>
 
-              <div class="rounded-[28px] border border-[#ded4c3] bg-white/78 p-5 shadow-sm">
-                <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">最近实验摘要</div>
-                <div v-if="recentDebugSummary" class="mt-4 space-y-3 text-sm text-[#45554d]">
-                  <div><span class="font-black text-[#15231f]">角色</span> · {{ recentDebugSummary.character_name }}</div>
-                  <div><span class="font-black text-[#15231f]">Prompt Layers</span> · {{ recentDebugSummary.prompt_layers.join(' / ') || '无' }}</div>
-                  <div><span class="font-black text-[#15231f]">Runtime</span> · {{ recentDebugSummary.runtime_source || '无' }}</div>
-                  <div><span class="font-black text-[#15231f]">记忆注入</span> · 摘要 {{ recentDebugSummary.used_summary ? '是' : '否' }} / 偏好 {{ recentDebugSummary.used_user_preference_memory ? '是' : '否' }}</div>
-                  <div><span class="font-black text-[#15231f]">刷新原因</span> · {{ recentDebugSummary.memory_update_reason || '无' }}</div>
+                  <div v-if="testError" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">{{ testError }}</div>
+                  <div v-if="memoryActionMessage" class="rounded-2xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success">{{ memoryActionMessage }}</div>
+                  <div v-if="memoryActionError" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">{{ memoryActionError }}</div>
+
+                  <div class="rounded-[28px] border border-[#ded4c3] bg-[#fcfbf7] p-5">
+                    <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">试聊状态</div>
+                    <div class="mt-4">
+                      <div class="text-lg font-black text-[#15231f]">{{ trialChatStatusSummary.title }}</div>
+                      <p class="mt-2 text-sm leading-6 text-[#56635d]">{{ trialChatStatusSummary.detail }}</p>
+                      <div class="mt-3 rounded-2xl border border-[#e7dece] bg-[#fbf7ef] px-4 py-3 text-sm text-[#5f543f]">
+                        {{ trialChatStatusSummary.action }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="rounded-[28px] border border-[#dfd4c1] bg-[#fcfbf7] p-5">
+                    <div class="text-sm font-black text-[#22302b]">试聊输出</div>
+                    <div v-if="testReply" class="mt-4 prose max-w-none text-sm leading-7 text-[#32413b]">
+                      <MarkdownContent :content="testReply" />
+                    </div>
+                    <div v-else class="mt-4 text-sm text-[#7d7568]">还没有试聊结果。</div>
+                  </div>
                 </div>
-                <div v-else class="mt-4 text-sm text-[#7d7568]">当前还没有最近一次实验摘要。</div>
-              </div>
+              </section>
+
+              <section class="rounded-[32px] border border-[#ded4c3] bg-white/78 p-6 shadow-sm">
+                <div class="border-b border-[#e6ddcd] pb-4">
+                  <h2 class="text-2xl font-black text-[#15231f]">试听</h2>
+                  <p class="mt-2 text-sm leading-6 text-[#56635d]">试听会直接使用当前草稿里的音色配置和语音运行时，用来确认真实播报效果。</p>
+                </div>
+
+                <div class="mt-6 space-y-5">
+                  <div>
+                    <label class="block text-sm font-black text-[#22302b]">音色试听文本</label>
+                    <textarea
+                      v-model="voiceSampleText"
+                      class="textarea textarea-bordered mt-3 min-h-24 w-full bg-white"
+                      placeholder="输入一段你想试听的文本，看看这个角色音色实际会怎么说。"
+                    />
+                  </div>
+
+                  <div class="flex flex-wrap gap-3">
+                    <button class="btn rounded-full border-[#d6ccb8] bg-white/80 text-[#15231f] hover:bg-[#fff7e8]" :disabled="studioVoicePreviewPending || !characterFormRef" @click="handleStudioVoicePreview">
+                      {{ studioVoicePreviewPending ? '试听中...' : '试试音色' }}
+                    </button>
+                  </div>
+
+                  <div
+                    v-if="studioVoicePreviewError"
+                    class="rounded-[24px] border border-error/30 bg-[linear-gradient(135deg,rgba(254,242,242,0.95),rgba(255,247,237,0.9))] px-5 py-4 text-sm text-error shadow-sm"
+                  >
+                    <div class="font-black">音色试听失败</div>
+                    <div class="mt-2 leading-6">{{ studioVoicePreviewError }}</div>
+                  </div>
+
+                  <div class="rounded-[28px] border border-[#ded4c3] bg-[#fcfbf7] p-5">
+                    <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">试听状态</div>
+                    <div class="mt-4">
+                      <div class="text-lg font-black text-[#15231f]">{{ voiceDiagnosticSummary.title }}</div>
+                      <p class="mt-2 text-sm leading-6 text-[#56635d]">{{ voiceDiagnosticSummary.detail }}</p>
+                      <div class="mt-3 rounded-2xl border border-[#e7dece] bg-[#fbf7ef] px-4 py-3 text-sm text-[#5f543f]">
+                        {{ voiceDiagnosticSummary.action }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
 
@@ -569,16 +702,52 @@ onMounted(() => {
               @remove="removeCharacter"
             />
 
-            <div class="rounded-[28px] border border-[#ded4c3] bg-white/78 p-5 shadow-sm">
-              <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">运行时摘要</div>
-              <div v-if="diagnosticSummary" class="mt-4 space-y-3">
-                <div class="text-lg font-black text-[#15231f]">{{ diagnosticSummary.title }}</div>
-                <p class="text-sm leading-6 text-[#56635d]">{{ diagnosticSummary.detail }}</p>
-                <div class="rounded-2xl border border-[#e7dece] bg-[#fbf7ef] px-4 py-3 text-sm text-[#5f543f]">
-                  {{ diagnosticSummary.action }}
+            <div class="space-y-4">
+              <div class="rounded-[28px] border border-[#ded4c3] bg-white/78 p-5 shadow-sm">
+                <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">运行时摘要</div>
+                <div v-if="diagnosticSummary" class="mt-4 space-y-3">
+                  <div class="text-lg font-black text-[#15231f]">{{ diagnosticSummary.title }}</div>
+                  <p class="text-sm leading-6 text-[#56635d]">{{ diagnosticSummary.detail }}</p>
+                  <div class="rounded-2xl border border-[#e7dece] bg-[#fbf7ef] px-4 py-3 text-sm text-[#5f543f]">
+                    {{ diagnosticSummary.action }}
+                  </div>
                 </div>
+                <div v-else class="mt-4 text-sm text-[#7d7568]">当前还没有运行时摘要。</div>
               </div>
-              <div v-else class="mt-4 text-sm text-[#7d7568]">当前还没有运行时摘要。</div>
+
+              <div class="rounded-[28px] border border-[#ded4c3] bg-white/78 p-5 shadow-sm">
+                <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">角色记忆</div>
+                <div v-if="currentSessionMemorySummary" class="mt-4 space-y-4">
+                  <div class="rounded-2xl border border-[#e7dece] bg-[#fcfbf7] px-4 py-3 text-sm text-[#5f543f]">
+                    <div>最近消息：{{ currentSessionMemorySummary.last_message_at ? new Date(currentSessionMemorySummary.last_message_at).toLocaleString() : '还没有正式对话' }}</div>
+                    <div class="mt-1">记忆更新时间：{{ currentSessionMemorySummary.memory_updated_at ? new Date(currentSessionMemorySummary.memory_updated_at).toLocaleString() : '还没形成长期记忆' }}</div>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="rounded-2xl border border-[#e7dece] bg-[#fcfbf7] p-4">
+                      <div class="text-sm font-black text-[#15231f]">会话摘要</div>
+                      <p class="mt-2 text-sm leading-6 text-[#56635d]">
+                        {{ currentSessionMemorySummary.conversation_summary || '当前还没有稳定的会话摘要。多聊几轮之后，这里会开始沉淀角色与用户之间的重要上下文。' }}
+                      </p>
+                    </div>
+
+                    <div class="rounded-2xl border border-[#e7dece] bg-[#fcfbf7] p-4">
+                      <div class="text-sm font-black text-[#15231f]">关系记忆</div>
+                      <p class="mt-2 text-sm leading-6 text-[#56635d]">
+                        {{ currentSessionMemorySummary.relationship_memory || '当前还没有形成明确的关系记忆。角色会在长期对话中逐步沉淀和用户之间的关系感。' }}
+                      </p>
+                    </div>
+
+                    <div class="rounded-2xl border border-[#e7dece] bg-[#fcfbf7] p-4">
+                      <div class="text-sm font-black text-[#15231f]">用户偏好记忆</div>
+                      <p class="mt-2 text-sm leading-6 whitespace-pre-line text-[#56635d]">
+                        {{ currentSessionMemorySummary.user_preference_memory || '当前还没有沉淀出明确的用户偏好。聊得更多之后，这里会逐步出现称呼、偏好和话题倾向。' }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="mt-4 text-sm text-[#7d7568]">当前角色还没有会话记忆摘要。</div>
+              </div>
             </div>
           </div>
         </div>

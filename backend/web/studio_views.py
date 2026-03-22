@@ -12,6 +12,19 @@ from web.local_runtime import ensure_demo_voice_configs, get_or_create_local_ope
 from web.models import Character, Friend, Voice
 
 
+def _serialize_session_memory_summary(session: Friend):
+    latest_message = session.messages.order_by('-created_at').first()
+    return {
+        'character_id': session.character_id,
+        'has_messages': session.messages.exists(),
+        'last_message_at': latest_message.created_at.isoformat() if latest_message else '',
+        'memory_updated_at': session.memory_updated_at.isoformat() if session.memory_updated_at else '',
+        'conversation_summary': session.conversation_summary.strip(),
+        'relationship_memory': session.relationship_memory.strip(),
+        'user_preference_memory': session.user_preference_memory.strip(),
+    }
+
+
 def _serialize_recent_debug_summary(session: Optional[Friend]):
     if not session:
         return None
@@ -57,10 +70,15 @@ def studio_overview_view(request):
         'character',
         'character__voice',
     ).order_by('-last_debug_at', '-memory_updated_at', '-created_at', '-id').first()
+    session_memory_summaries = [
+        _serialize_session_memory_summary(session)
+        for session in Friend.objects.filter(user=local_user).select_related('character').order_by('-memory_updated_at', '-created_at', '-id')
+    ]
 
     return Response({
         'characters': serialize_character_list(characters),
         'voices': [serialize_voice(voice) for voice in voices],
         'runtime_summary': get_runtime_summary(),
         'recent_debug_summary': _serialize_recent_debug_summary(recent_session),
+        'session_memory_summaries': session_memory_summaries,
     }, status=status.HTTP_200_OK)

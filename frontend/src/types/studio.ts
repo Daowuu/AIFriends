@@ -23,11 +23,22 @@ export type StudioRecentDebugSummary = {
   used_user_preference_memory: boolean
 }
 
+export type StudioSessionMemorySummary = {
+  character_id: number
+  has_messages: boolean
+  last_message_at: string
+  memory_updated_at: string
+  conversation_summary: string
+  relationship_memory: string
+  user_preference_memory: string
+}
+
 export type StudioOverview = {
   characters: Character[]
   voices: VoiceOption[]
   runtime_summary: AIRuntimeSummary
   recent_debug_summary: StudioRecentDebugSummary | null
+  session_memory_summaries: StudioSessionMemorySummary[]
 }
 
 export type StudioChatDebug = {

@@ -62,7 +62,7 @@ def _serialize_recent_debug_summary(session: Optional[Friend]):
 def studio_overview_view(request):
     local_user = get_or_create_local_operator_user()
     ensure_demo_voice_configs()
-    characters = Character.objects.filter(user=local_user).select_related('voice')
+    characters = Character.objects.filter(user=local_user).select_related('voice').order_by('sort_order', 'id')
     voices = Voice.objects.filter(is_active=True).filter(
         Q(source='system') | Q(owner=local_user),
     ).order_by('source', 'name', 'id')

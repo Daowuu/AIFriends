@@ -144,6 +144,11 @@ def _resolve_character_ai_config(payload, *, character=None):
     }
 
 
+def _get_next_sort_order():
+    latest = Character.objects.filter(user=get_or_create_local_operator_user()).order_by('-sort_order', '-id').first()
+    return (latest.sort_order + 1) if latest else 0
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_character_voices_view(request):
@@ -213,7 +218,7 @@ def remove_character_voice_view(request, voice_id):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_characters_view(request):
-    characters = Character.objects.filter(user=get_or_create_local_operator_user()).select_related('voice')
+    characters = Character.objects.filter(user=get_or_create_local_operator_user()).select_related('voice').order_by('sort_order', 'id')
     return Response(
         {'characters': serialize_character_list(characters)},
         status=status.HTTP_200_OK,
@@ -247,6 +252,7 @@ def create_character_view(request):
         voice=voice,
         photo=photo,
         background_image=background_image,
+        sort_order=_get_next_sort_order(),
         **ai_config,
     )
 
@@ -321,3 +327,37 @@ def remove_character_view(request, character_id):
     remove_stored_file(character.background_image)
     character.delete()
     return Response({'detail': '角色已删除。'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reorder_characters_view(request):
+    raw_ids = request.data.get('character_ids')
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return Response({'detail': '角色排序参数不能为空。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        character_ids = [int(character_id) for character_id in raw_ids]
+    except (TypeError, ValueError):
+        return Response({'detail': '角色排序参数格式不正确。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(character_ids) != len(set(character_ids)):
+        return Response({'detail': '角色排序参数存在重复项。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    local_user = get_or_create_local_operator_user()
+    characters = list(Character.objects.filter(user=local_user, id__in=character_ids).order_by('sort_order', 'id'))
+    if len(characters) != len(character_ids):
+        return Response({'detail': '角色排序参数不完整，无法保存顺序。'}, status=status.HTTP_400_BAD_REQUEST)
+
+    character_map = {character.id: character for character in characters}
+    for index, character_id in enumerate(character_ids):
+        character = character_map[character_id]
+        if character.sort_order != index:
+            character.sort_order = index
+            character.save(update_fields=['sort_order'])
+
+    ordered_characters = Character.objects.filter(user=local_user).select_related('voice').order_by('sort_order', 'id')
+    return Response({
+        'characters': serialize_character_list(ordered_characters),
+        'detail': '角色顺序已更新。',
+    }, status=status.HTTP_200_OK)

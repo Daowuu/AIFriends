@@ -54,7 +54,7 @@ def _build_paginated_response(queryset, request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def homepage_index_view(request):
-    queryset = Character.objects.select_related('voice').all()
+    queryset = Character.objects.select_related('voice').all().order_by('sort_order', 'id')
     return _build_paginated_response(queryset, request)
 
 

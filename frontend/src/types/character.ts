@@ -25,6 +25,7 @@ export type Character = {
   name: string
   profile: string
   custom_prompt: string
+  sort_order: number
   voice_id: number | null
   voice: VoiceOption | null
   photo: string

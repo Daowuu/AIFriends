@@ -46,6 +46,7 @@ def serialize_character(character: Character):
         'name': character.name,
         'profile': character.profile,
         'custom_prompt': character.custom_prompt,
+        'sort_order': character.sort_order,
         'voice_id': character.voice_id,
         'voice': serialize_voice(character.voice) if character.voice else None,
         'photo': file_url(character.photo),

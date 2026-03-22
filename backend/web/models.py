@@ -57,6 +57,7 @@ class Character(models.Model):
         blank=True,
         null=True,
     )
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
     reply_style = models.CharField(max_length=32, choices=REPLY_STYLE_CHOICES, default='natural')
     reply_length = models.CharField(max_length=32, choices=REPLY_LENGTH_CHOICES, default='balanced')
     initiative_level = models.CharField(max_length=32, choices=INITIATIVE_LEVEL_CHOICES, default='balanced')
@@ -69,7 +70,7 @@ class Character(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-updated_at', '-id']
+        ordering = ['sort_order', 'id']
 
     def __str__(self):
         return self.name

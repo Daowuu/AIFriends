@@ -31,6 +31,8 @@ const sessionMemorySummaries = ref<StudioSessionMemorySummary[]>([])
 const selectedCharacterId = ref<number | null>(null)
 const hasDraftSlot = ref(false)
 const draftSlotVersion = ref(0)
+const reorderPending = ref(false)
+const draggedCharacterId = ref<number | null>(null)
 const searchQuery = ref('')
 const testPrompt = ref('用你的角色语气做一个简短自我介绍。')
 const testReply = ref('')
@@ -66,6 +68,68 @@ const filteredCharacters = computed(() => {
     || character.custom_prompt.toLowerCase().includes(query)
   ))
 })
+
+const reorderCharactersLocally = (sourceId: number, targetId: number) => {
+  if (sourceId === targetId) return false
+
+  const sourceIndex = characters.value.findIndex((character) => character.id === sourceId)
+  const targetIndex = characters.value.findIndex((character) => character.id === targetId)
+  if (sourceIndex < 0 || targetIndex < 0) return false
+
+  const nextCharacters = [...characters.value]
+  const [movedCharacter] = nextCharacters.splice(sourceIndex, 1)
+  if (!movedCharacter) return false
+  nextCharacters.splice(targetIndex, 0, movedCharacter)
+  characters.value = nextCharacters.map((character, index) => ({
+    ...character,
+    sort_order: index,
+  }))
+  return true
+}
+
+const persistCharacterOrder = async (previousCharacters: Character[]) => {
+  try {
+    const response = await api.post<{ characters: Character[] }>('/character/reorder/', {
+      character_ids: characters.value.map((character) => character.id),
+    })
+    characters.value = response.data.characters
+  } catch (error: unknown) {
+    characters.value = previousCharacters
+    overviewError.value = '保存角色顺序失败。'
+    if (typeof error === 'object' && error && 'response' in error) {
+      const response = (error as { response?: { data?: { detail?: string } } }).response
+      overviewError.value = response?.data?.detail || overviewError.value
+    }
+  } finally {
+    reorderPending.value = false
+  }
+}
+
+const handleCharacterDragStart = (characterId: number) => {
+  if (reorderPending.value) return
+  draggedCharacterId.value = characterId
+}
+
+const handleCharacterDragEnd = () => {
+  draggedCharacterId.value = null
+}
+
+const handleCharacterDrop = async (targetCharacterId: number) => {
+  const sourceCharacterId = draggedCharacterId.value
+  draggedCharacterId.value = null
+
+  if (!sourceCharacterId || sourceCharacterId === targetCharacterId || reorderPending.value) {
+    return
+  }
+
+  const previousCharacters = [...characters.value]
+  const changed = reorderCharactersLocally(sourceCharacterId, targetCharacterId)
+  if (!changed) return
+
+  reorderPending.value = true
+  overviewError.value = ''
+  await persistCharacterOrder(previousCharacters)
+}
 
 const testDebugDisplay = computed(() => {
   const debug = testDebug.value
@@ -516,9 +580,14 @@ onMounted(() => {
                     v-for="character in filteredCharacters"
                     :key="character.id"
                     type="button"
+                    draggable="true"
                     class="flex min-w-[11rem] items-center gap-3 rounded-[22px] border px-4 py-3 text-left transition sm:min-w-[12rem] xl:min-w-[13rem]"
                     :class="selectedCharacterId === character.id ? 'border-[#16231f] bg-[#16231f] text-[#f7f1e5]' : 'border-[#d9cfbe] bg-white text-[#22302b] hover:bg-[#fff7e8]'"
                     @click="selectCharacter(character)"
+                    @dragstart="handleCharacterDragStart(character.id)"
+                    @dragend="handleCharacterDragEnd"
+                    @dragover.prevent
+                    @drop="handleCharacterDrop(character.id)"
                   >
                     <div class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-base-200 font-black">
                       <img v-if="character.photo" :src="character.photo" :alt="character.name" class="h-full w-full object-cover">
@@ -550,7 +619,7 @@ onMounted(() => {
                   <input v-model="searchQuery" type="text" class="bg-transparent text-sm font-semibold outline-none" placeholder="搜索角色">
                 </label>
                 <div class="rounded-full border border-[#d6ccb8] bg-white/80 px-4 py-2 text-sm font-bold text-[#45554d]">
-                  {{ characters.length }} 个角色
+                  {{ reorderPending ? '保存顺序中...' : `${characters.length} 个角色` }}
                 </div>
               </div>
             </div>

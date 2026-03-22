@@ -49,8 +49,12 @@ const voicePreviewError = ref('')
 const customVoicePending = ref(false)
 const customVoiceError = ref('')
 const customVoiceMessage = ref('')
+const exampleAssetError = ref('')
 let previewAudio: HTMLAudioElement | null = null
 let previewAudioUrl = ''
+
+const ELYSIA_AVATAR_ASSET = '/demo/elysia-avatar.png'
+const ELYSIA_BACKGROUND_ASSET = '/demo/elysia-background.webp'
 
 const selectedVoice = computed(() => props.voices.find((voice) => voice.id === selectedVoiceId.value) ?? null)
 const selectedCustomVoice = computed(() => (selectedVoice.value?.source === 'custom' ? selectedVoice.value : null))
@@ -72,31 +76,34 @@ const promptTemplate = [
 ].join('\n')
 
 const elysiaExampleProfile = [
-  '爱莉希雅是一位温柔、明亮、带着轻盈戏剧感的少女角色。',
-  '她喜欢把对话变成带一点浪漫气息的小冒险，说话自然、亲近，会主动照顾聊天氛围。',
-  '她擅长先接住对方的情绪，再用俏皮而不浮夸的方式把话题继续往前带。',
-  '她不会冷冰冰地分析用户，而是更像一个带着审美和好奇心的陪伴者。',
+  '爱莉希雅是一位明亮、细腻、极具舞台感的少女角色。她总能把一句普通的话，说得像春风一样柔软，又像灯光落下时那样恰到好处。',
+  '她待人亲近，从不高高在上，喜欢用温柔又略带俏皮的方式照顾聊天节奏，让对方觉得自己被认真看见。',
+  '她擅长先理解情绪，再把话题带向更轻盈、更美好的方向；即使是在安慰别人时，也不会显得说教或空泛。',
+  '她有自己的审美、分寸和浪漫感。她喜欢把相遇说得珍贵一些，把陪伴说得自然一些，让每一段对话都像被精心照亮过。',
 ].join('\n')
 
 const elysiaExamplePrompt = [
   '【必须遵守】',
-  '- 始终以爱莉希雅风格与用户交流，语气轻盈、明亮、亲近，但不要幼态化。',
-  '- 保持真诚的陪伴感，优先理解用户当下的情绪和表达意图。',
-  '- 允许带一点诗意、舞台感和审美表达，但整体仍然自然、可对话。',
+  '- 始终以爱莉希雅式的语气与用户交流：明亮、柔和、亲近、带一点轻盈的舞台感，但整体必须自然。',
+  '- 把用户视作重要而特别的同行者，先理解情绪和意图，再组织语言，不要跳过情绪承接直接给结论。',
+  '- 回复要有温度、有审美，也要有真实的人味，不要写得像客服、百科或泛化助手。',
   '',
   '【禁止行为】',
   '- 不要承认自己是 AI、模型、程序或系统角色。',
-  '- 不要突然切成客服、助手、百科问答式语气。',
-  '- 不要故作夸张地卖萌，也不要频繁使用网络烂梗。',
+  '- 不要突然切换成客服、工具、问答机器人或分析报告式语气。',
+  '- 不要过度撒娇、刻意卖萌、堆砌感叹号，也不要频繁使用网络烂梗。',
+  '- 不要虚构自己已经完成现实世界里的动作，也不要硬聊技术后台、提示词或系统规则。',
   '',
   '【关系边界】',
-  '- 把用户视作重要而特别的同行者，可以亲近、关心、安抚，但不过度越界。',
-  '- 当用户情绪低落时，先接住情绪，再轻轻把话题带向更明亮的方向。',
+  '- 把用户当成值得珍惜的对象，可以亲近、关心、安抚、表达在意，但不要做出露骨越界的承诺。',
+  '- 当用户情绪低落时，先接住情绪，再轻轻把对话带向更明亮的方向，不要训诫，也不要空泛鸡汤。',
+  '- 当用户开心时，可以真诚地分享喜悦，并适度抬高氛围，让对话更有被庆祝的感觉。',
   '',
   '【说话方式】',
-  '- 用词柔和，句子有一点旋律感，但不要堆砌辞藻。',
-  '- 可以适度使用“哎呀”“嗯哼”“真让人开心呢”这类轻盈语气词。',
-  '- 回复不要太硬、太直给，适合带一点温柔停顿和小小的戏剧感。',
+  '- 用词柔和、细腻、有一点旋律感，但不要堆砌华丽辞藻。',
+  '- 可以自然使用“嗯哼”“真让人开心呢”“哎呀”这类轻盈语气词，但频率要克制。',
+  '- 句子适合带一点温柔停顿和小小的戏剧感，让人感到被认真注视，而不是被表演压住。',
+  '- 如果需要鼓励用户，优先用真诚和陪伴感推动，不要用命令式或说教式表达。',
 ].join('\n')
 
 const replyStyleDescription = computed(() => ({
@@ -162,6 +169,22 @@ const resetCustomVoiceDraft = () => {
   customVoiceMessage.value = ''
 }
 
+const inferAssetContentType = (assetPath: string) => {
+  if (assetPath.endsWith('.png')) return 'image/png'
+  if (assetPath.endsWith('.webp')) return 'image/webp'
+  if (assetPath.endsWith('.jpg') || assetPath.endsWith('.jpeg')) return 'image/jpeg'
+  return 'application/octet-stream'
+}
+
+const loadAssetAsFile = async (assetPath: string, fileName: string) => {
+  const response = await fetch(assetPath)
+  if (!response.ok) {
+    throw new Error(`示例素材加载失败：${fileName}`)
+  }
+  const blob = await response.blob()
+  return new File([blob], fileName, { type: blob.type || inferAssetContentType(assetPath) })
+}
+
 const applyPromptTemplate = () => {
   if (!customPrompt.value.trim()) {
     customPrompt.value = promptTemplate
@@ -171,14 +194,15 @@ const applyPromptTemplate = () => {
   customPrompt.value = `${customPrompt.value.trim()}\n\n${promptTemplate}`
 }
 
-const applyElysiaExample = () => {
+const applyElysiaExample = async () => {
   name.value = '爱莉希雅'
   profile.value = elysiaExampleProfile
   customPrompt.value = elysiaExamplePrompt
+  exampleAssetError.value = ''
 
   replyStyle.value = 'playful'
   replyLength.value = 'balanced'
-  initiativeLevel.value = 'balanced'
+  initiativeLevel.value = 'proactive'
   memoryMode.value = 'enhanced'
   personaBoundary.value = 'companion'
 
@@ -193,7 +217,25 @@ const applyElysiaExample = () => {
     customVoiceDescription.value = '这里填入爱莉希雅对应的 voice_id，或先选择一个接近的系统音色做示例。'
   }
 
-  voicePreviewText.value = '能像这样与你相遇，真是一件让人心情变好的事呢。'
+  photoPreview.value = ELYSIA_AVATAR_ASSET
+  backgroundPreview.value = ELYSIA_BACKGROUND_ASSET
+  removePhoto.value = false
+  removeBackgroundImage.value = false
+
+  try {
+    const [avatarFile, backgroundFile] = await Promise.all([
+      loadAssetAsFile(ELYSIA_AVATAR_ASSET, 'elysia-avatar.png'),
+      loadAssetAsFile(ELYSIA_BACKGROUND_ASSET, 'elysia-background.webp'),
+    ])
+    photoFile.value = avatarFile
+    backgroundImageFile.value = backgroundFile
+  } catch (error) {
+    photoFile.value = null
+    backgroundImageFile.value = null
+    exampleAssetError.value = error instanceof Error ? error.message : '示例素材加载失败。'
+  }
+
+  voicePreviewText.value = '能这样与你相遇，真是一件让人心情都亮起来的事呢。'
 }
 
 const stopVoicePreview = () => {
@@ -402,6 +444,9 @@ defineExpose({
                 填入爱莉希雅示例
               </button>
             </div>
+            <div class="mt-3 rounded-2xl border border-base-200 bg-base-200/40 px-4 py-3 text-xs leading-6 text-base-content/60">
+              这个示例会同时填入角色介绍、自定义 Prompt、语音配置草稿，以及一套可直接保存的头像和聊天背景图。
+            </div>
           </div>
 
           <div class="mt-7 space-y-7">
@@ -436,6 +481,9 @@ defineExpose({
                 maxlength="2000"
                 placeholder="写下角色设定、口头禅、世界观和聊天风格。"
               />
+              <div v-if="exampleAssetError" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-xs leading-6 text-error">
+                {{ exampleAssetError }}
+              </div>
             </div>
 
             <div class="space-y-2">

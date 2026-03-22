@@ -197,8 +197,27 @@ const handleSubmit = async (payload: CharacterFormPayload) => {
 }
 
 const removeCharacter = async (character: Character) => {
-  await api.post(`/character/${character.id}/remove/`)
-  await loadStudioOverview(character.id === selectedCharacterId.value ? null : selectedCharacterId.value)
+  if (typeof window !== 'undefined' && !window.confirm(`删除角色“${character.name}”后将同时移除这段会话记录。是否继续？`)) {
+    return
+  }
+
+  pending.value = true
+  overviewError.value = ''
+
+  try {
+    await api.post(`/character/${character.id}/remove/`)
+    await loadStudioOverview(character.id === selectedCharacterId.value ? null : selectedCharacterId.value)
+    workspacePanel.value = 'configure'
+    hasDraftSlot.value = false
+  } catch (error: unknown) {
+    overviewError.value = '删除角色失败。'
+    if (typeof error === 'object' && error && 'response' in error) {
+      const response = (error as { response?: { data?: { detail?: string } } }).response
+      overviewError.value = response?.data?.detail || overviewError.value
+    }
+  } finally {
+    pending.value = false
+  }
 }
 
 const startCreateMode = () => {
@@ -442,6 +461,21 @@ onMounted(() => {
 
           <div v-show="workspacePanel === 'configure'" class="space-y-6">
             <div class="rounded-[32px] border border-[#ded4c3] bg-white/78 p-6 shadow-sm">
+              <div v-if="currentCharacter" class="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ddcd] pb-4">
+                <div>
+                  <div class="text-xs font-black uppercase tracking-[0.2em] text-[#8a7757]">当前角色</div>
+                  <div class="mt-2 text-xl font-black text-[#15231f]">{{ currentCharacter.name }}</div>
+                </div>
+                <button
+                  type="button"
+                  class="btn rounded-full border border-error/30 bg-error/5 text-error hover:bg-error/10"
+                  :disabled="pending"
+                  @click="removeCharacter(currentCharacter)"
+                >
+                  {{ pending ? '处理中...' : '删除角色' }}
+                </button>
+              </div>
+
               <CharacterForm
                 :key="formKey"
                 ref="characterFormRef"

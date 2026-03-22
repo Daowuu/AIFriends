@@ -47,7 +47,7 @@ cd AIFriends
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv openai
+pip install -r requirements.txt
 cp backend/.env.example backend/.env
 python3 backend/manage.py migrate
 python3 backend/manage.py runserver
@@ -78,6 +78,12 @@ npm run dev -- --host 127.0.0.1
 ```bash
 npm install
 npm run dev
+```
+
+如果你只想先把 Python 依赖装好，也可以单独执行：
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## 最小配置

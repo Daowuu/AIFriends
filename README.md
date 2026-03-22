@@ -47,7 +47,7 @@ Recommended Python: `3.12+`
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv openai
+pip install -r requirements.txt
 cp backend/.env.example backend/.env
 python3 backend/manage.py migrate
 python3 backend/manage.py runserver
@@ -78,6 +78,12 @@ From repo root:
 ```bash
 npm install
 npm run dev
+```
+
+If you only want to install the Python dependencies first:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Minimal Config
